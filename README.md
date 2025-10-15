@@ -1,6 +1,6 @@
 # Cache Me If You Can (CMIYC_SE305)
 
-![Project Logo](logo.png)
+![Project Logo](Cache Me If You Can Logo.png)
 
 ## Team Members
 | Name               | Role                    |
