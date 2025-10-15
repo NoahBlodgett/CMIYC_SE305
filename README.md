@@ -1,12 +1,12 @@
 # CMIYC_SE305
 Cache me if you can, SE305
 Team:
-Brandon Kampsen						CEO/Project Manager
-Nicholas Chan							Machine Learning Engineer
-Noah Blodgett							Database/DevOps Engineer
-Nathan Arends						  Frontend Developer
-Nolan Gall							  Quality Assurance
-Hemi Woertink						  Backend Developer
+\nBrandon Kampsen						CEO/Project Manager
+\nNicholas Chan							Machine Learning Engineer
+\nNoah Blodgett							Database/DevOps Engineer
+\nNathan Arends						  Frontend Developer
+\nNolan Gall							  Quality Assurance
+\nHemi Woertink						  Backend Developer
 
 Main Concept:
 Creating a Fitness App with a Flutter Front-end and a Node.JS Backend.
