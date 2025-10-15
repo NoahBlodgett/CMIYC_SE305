@@ -1,1 +1,12 @@
-
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "A minimal Node.js backend project.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
