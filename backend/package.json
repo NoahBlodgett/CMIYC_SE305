@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "A minimal Node.js backend project.",
+  "description": "Node.JS Backend",
   "main": "index.js",
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0"
