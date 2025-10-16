@@ -1,0 +1,65 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+.metadata
+
+# Build outputs
+build/
+**/build/
+coverage/
+
+# VS Code
+.vscode/
+
+# Android
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/key.properties
+**/android/app/key.jks
+**/android/app/debug.keystore
+**/android/*.iml
+
+# iOS and Xcode
+**/ios/.generated/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Pods/
+**/ios/Runner.xcworkspace/
+**/ios/*.mode1v3
+**/ios/*.mode2v3
+**/ios/*.perspectivev3
+**/ios/*.xcuserstate
+**/ios/**/xcuserdata/
+
+# macOS
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Flutter/ephemeral/
+**/macos/ServiceDefinitions.json
+**/macos/Pods/
+**/macos/Runner.xcworkspace/
+
+# Windows
+**/windows/Runner/GeneratedPluginRegistrant.*
+**/windows/flutter/ephemeral/
+
+# Linux
+**/linux/flutter/ephemeral/
+
+# Web
+**/web/.dart_tool/
+
+# IntelliJ / Android Studio
+**/.idea/
+**/*.iml
+
+# Temp files
+*.log
+.DS_Store
+Thumbs.db
