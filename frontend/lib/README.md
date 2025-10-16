@@ -33,7 +33,7 @@ Add your assets under `assets/` and fonts under `assets/fonts/` then update `pub
 
 Example structure:
 ```
-frontend/git/
+frontend/lib/
   assets/
     images/
     icons/
