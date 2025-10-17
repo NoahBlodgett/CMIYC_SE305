@@ -1,0 +1,101 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [main, setupFrontEnd]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/flutter-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/flutter-ci.yml"
+
+jobs:
+  analyze_and_test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/cache_me_if_you_can
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --no-pub
+
+  build_android:
+    name: Build Android (APK)
+    needs: analyze_and_test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/cache_me_if_you_can
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Build APK (debug)
+        run: flutter build apk --debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-debug
+          path: frontend/cache_me_if_you_can/build/app/outputs/flutter-apk/app-debug.apk
+
+  build_ios:
+    name: Build iOS (no code signing)
+    needs: analyze_and_test
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: frontend/cache_me_if_you_can
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods --no-document
+
+      - name: Build iOS (debug, no codesign)
+        run: flutter build ios --debug --no-codesign
+
+      - name: Upload iOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-debug
+          path: frontend/cache_me_if_you_can/build/ios/iphoneos/*.app
