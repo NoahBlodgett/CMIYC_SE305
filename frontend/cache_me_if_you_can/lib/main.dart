@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'pages/settings_page.dart';
+import 'styles/styles.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,12 @@ Future<void> main() async {
 
     runApp(const MyApp());
   } catch (e) {
-    runApp(ErrorApp(e.toString()));
+    // In development, continue without Firebase and let widgets use mock fallbacks.
+    if (kDebugMode) {
+      runApp(const MyApp());
+    } else {
+      runApp(ErrorApp(e.toString()));
+    }
   }
 }
 
@@ -64,14 +70,14 @@ class ErrorApp extends StatelessWidget {
                     // Try a simple retry (useful after adding config files)
                     try {
                       await Firebase.initializeApp();
-                      // Restart the app by rebuilding the widget tree with MyApp
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const MyApp()),
-                      );
+                      // Restart the app by calling runApp again
+                      runApp(const MyApp());
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Still failing: $e')),
-                      );
+                      // Can't use ScaffoldMessenger safely across async gap; print instead
+                      // Developer can see console logs
+                      // Optionally you could show a dialog using a new context
+                      // but runApp restart is simplest here.
+                      if (kDebugMode) debugPrint('Still failing: $e');
                     }
                   },
                   child: const Text('Retry initialize'),
@@ -91,8 +97,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cache Me If You Can',
-      theme: ThemeData(primarySwatch: Colors.pink),
+      title: 'Momentum',
+      // Apply centralized theme from styles.dart
+      theme: AppTheme.lightTheme,
       home: const HomePage(),
       debugShowCheckedModeBanner: false,
     );
@@ -117,12 +124,14 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(
               "Hello, ${widget.user}",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              // Use themed headline style from AppTheme
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               "Ready to crush your goals today?",
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              // Subtle secondary text color from AppTheme
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
@@ -143,10 +152,13 @@ class _HomePageState extends State<HomePage> {
             },
           ),
         ],
+        // AppBar theming (colors, elevation, bottom border) comes from AppTheme
         toolbarHeight: 60,
-        backgroundColor: Colors.blueAccent,
       ),
-      body: Text("Hello World!"),
+      body: const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text("Hello World!"),
+      ),
     );
   }
 }

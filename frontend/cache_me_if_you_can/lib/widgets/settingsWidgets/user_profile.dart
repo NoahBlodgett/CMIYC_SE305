@@ -1,10 +1,11 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../../mock/mock_data.dart';
 
 class UserProfile extends StatefulWidget {
   const UserProfile({super.key});
@@ -14,22 +15,21 @@ class UserProfile extends StatefulWidget {
 }
 
 class _UserProfileState extends State<UserProfile> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
-  User? _user;
+  // API base for local Node.js server
+  final String apiBase = 'http://localhost:3000';
+
   late TextEditingController _nameController;
   String? _photoUrl;
   bool _isLoading = false;
+  bool _mockMode = false;
 
   @override
   void initState() {
     super.initState();
-    _user = _auth.currentUser;
-    _photoUrl = _user?.photoURL;
-    _nameController = TextEditingController(text: _user?.displayName ?? '');
+    _nameController = TextEditingController();
+    _loadProfileFromApi();
   }
 
   @override
@@ -48,36 +48,65 @@ class _UserProfileState extends State<UserProfile> {
       if (picked == null) return;
 
       setState(() => _isLoading = true);
-
       final file = File(picked.path);
-      final uid = _user?.uid;
-      if (uid == null) throw Exception('No authenticated user');
 
-      final ref = _storage.ref().child('profile_pics').child('$uid.jpg');
-      await ref.putFile(file);
-      final downloadUrl = await ref.getDownloadURL();
+      // Proxy upload to Node server (multipart)
+      if (!_mockMode) {
+        final uri = Uri.parse('$apiBase/profile/upload-proxy');
+        final request = http.MultipartRequest('POST', uri);
+        request.files.add(
+          http.MultipartFile(
+            'file',
+            file.openRead(),
+            await file.length(),
+            filename: picked.name,
+          ),
+        );
 
-      // Update Firebase Auth profile
-      await _user!.updatePhotoURL(downloadUrl);
-
-      // Update Firestore user doc (optional, but useful for other services)
-      await _firestore.collection('users').doc(uid).set({
-        'photoURL': downloadUrl,
-      }, SetOptions(merge: true));
-
-      if (mounted) {
-        setState(() {
-          _photoUrl = downloadUrl;
-          _isLoading = false;
-        });
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 3),
+        );
+        final resp = await http.Response.fromStream(streamed);
+        if (resp.statusCode != 200) {
+          throw Exception('Upload failed: ${resp.statusCode} ${resp.body}');
+        }
+        final body = json.decode(resp.body);
+        final downloadUrl = body['publicUrl'] as String?;
+        if (downloadUrl == null) throw Exception('No publicUrl in response');
+        if (mounted) {
+          setState(() {
+            _photoUrl = downloadUrl;
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Mock behavior: just pretend upload succeeded and set a placeholder image URL
+        const placeholder = 'https://via.placeholder.com/150';
+        if (mounted) {
+          setState(() {
+            _photoUrl = placeholder;
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        // show snackbar synchronously while mounted
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
+      // In debug, fall back to mock mode on network failure
+      if (kDebugMode && !_mockMode) {
+        if (mounted) setState(() => _mockMode = true);
+        // Set placeholder and continue
+        if (mounted) {
+          setState(() {
+            _photoUrl = 'https://via.placeholder.com/150';
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
+        }
       }
     }
   }
@@ -87,11 +116,23 @@ class _UserProfileState extends State<UserProfile> {
       final newName = _nameController.text.trim();
       if (newName.isEmpty) return;
       setState(() => _isLoading = true);
-
-      await _user!.updateDisplayName(newName);
-      await _firestore.collection('users').doc(_user!.uid).set({
-        'displayName': newName,
-      }, SetOptions(merge: true));
+      if (!_mockMode) {
+        // POST to Node API to update name
+        final uri = Uri.parse('$apiBase/profile/name');
+        final resp = await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({'displayName': newName}),
+            )
+            .timeout(const Duration(seconds: 3));
+        if (resp.statusCode != 200) {
+          throw Exception('Failed to save name ${resp.body}');
+        }
+      } else {
+        // Mock: update local mock profile
+        await saveUserProfile({'name': newName});
+      }
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -100,11 +141,50 @@ class _UserProfileState extends State<UserProfile> {
         ).showSnackBar(const SnackBar(content: Text('Profile updated')));
       }
     } catch (e) {
+      // In debug, fall back to mock mode
+      if (kDebugMode && !_mockMode) {
+        if (mounted) setState(() => _mockMode = true);
+        await saveUserProfile({'name': _nameController.text.trim()});
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated (mock)')),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to update name: $e')));
+        }
+      }
+    }
+  }
+
+  Future<void> _loadProfileFromApi() async {
+    try {
+      final uri = Uri.parse('$apiBase/profile');
+      final resp = await http.get(uri).timeout(const Duration(seconds: 3));
+      if (resp.statusCode != 200) throw Exception('Failed to load profile');
+      final body = json.decode(resp.body);
       if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to update name: $e')));
+        setState(() {
+          _nameController.text = body['displayName'] ?? '';
+          _photoUrl = body['photoURL'];
+        });
+      }
+    } catch (e) {
+      // In debug, auto-switch to mock mode
+      if (kDebugMode) {
+        final mock = await fetchUserProfile();
+        if (mounted) {
+          setState(() {
+            _mockMode = true;
+            _nameController.text = mock['name'] ?? '';
+            _photoUrl = mock['photoURL'] ?? 'https://via.placeholder.com/150';
+          });
+        }
       }
     }
   }
@@ -118,6 +198,34 @@ class _UserProfileState extends State<UserProfile> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_mockMode)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    // Use themed secondary color with soft alpha for background
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                  child: Text(
+                    'Mock mode',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.secondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
             Stack(
               alignment: Alignment.bottomRight,
               children: [

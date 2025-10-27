@@ -1,123 +1,128 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:settings_ui/settings_ui.dart';
 import '../widgets/settingsWidgets/user_profile.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  bool _darkMode = false;
-  bool _notifications = true;
-  bool _autoSync = true;
-
-  final _auth = FirebaseAuth.instance;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
-    if (!snapshot.exists) return;
-    final data = snapshot.data()!;
-    setState(() {
-      _darkMode = data['settings']?['darkMode'] ?? _darkMode;
-      _notifications = data['settings']?['notifications'] ?? _notifications;
-      _autoSync = data['settings']?['autoSync'] ?? _autoSync;
-    });
-  }
-
-  Future<void> _saveSetting(String key, bool value) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'settings': {key: value},
-    }, SetOptions(merge: true));
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: const Text('User Settings'),
+        title: Text('Settings', style: theme.textTheme.titleLarge),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: theme.colorScheme.surface,
       ),
-      body: ListView(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              "Account",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+      body: SafeArea(
+        child: SettingsList(
+          lightTheme: SettingsThemeData(
+            settingsListBackground: theme.colorScheme.surface,
+            settingsSectionBackground: theme.colorScheme.surface,
+            trailingTextColor: theme.colorScheme.primary,
           ),
-          ListTile(
-            leading: const Icon(Icons.person),
-            title: const Text("Profile"),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => Scaffold(
-                    appBar: AppBar(title: const Text('Profile')),
-                    body: const Center(child: UserProfile()),
+          sections: [
+            SettingsSection(
+              title: const Text('Profile'),
+              tiles: [
+                SettingsTile.navigation(
+                  leading: CircleAvatar(
+                    backgroundColor: theme.colorScheme.secondaryContainer,
+                    child: Icon(
+                      Icons.person,
+                      color: theme.colorScheme.onSecondaryContainer,
+                    ),
                   ),
+                  title: const Text('Account'),
+                  value: const Text('Edit profile'),
+                  onPressed: (context) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(title: const Text('Account')),
+                          body: const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: UserProfile(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          SwitchListTile(
-            value: _darkMode,
-            title: const Text('Dark mode'),
-            secondary: const Icon(Icons.dark_mode),
-            onChanged: (v) {
-              setState(() => _darkMode = v);
-              _saveSetting('darkMode', v);
-            },
-          ),
-          SwitchListTile(
-            value: _notifications,
-            title: const Text('Notifications'),
-            secondary: const Icon(Icons.notifications),
-            onChanged: (v) {
-              setState(() => _notifications = v);
-              _saveSetting('notifications', v);
-            },
-          ),
-          SwitchListTile(
-            value: _autoSync,
-            title: const Text('Auto-sync'),
-            secondary: const Icon(Icons.sync),
-            onChanged: (v) {
-              setState(() => _autoSync = v);
-              _saveSetting('autoSync', v);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.lock_reset),
-            title: const Text("Reset Password"),
-            onTap: () => FirebaseAuth.instance.sendPasswordResetEmail(
-              email: FirebaseAuth.instance.currentUser?.email ?? '',
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Password & Security'),
+                  onPressed: (context) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Security page coming soon'),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ),
-        ],
+            SettingsSection(
+              title: const Text('Preferences'),
+              tiles: [
+                SettingsTile.switchTile(
+                  title: const Text('Dark Mode'),
+                  leading: const Icon(Icons.dark_mode),
+                  initialValue: false,
+                  onToggle: (value) {},
+                ),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.palette_outlined),
+                  title: const Text('Theme Color'),
+                  value: const Text('System Default'),
+                  onPressed: (context) {},
+                ),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.language),
+                  title: const Text('Language'),
+                  value: const Text('English'),
+                  onPressed: (context) {},
+                ),
+              ],
+            ),
+            SettingsSection(
+              title: const Text('Notifications'),
+              tiles: [
+                SettingsTile.switchTile(
+                  initialValue: true,
+                  onToggle: (value) {},
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: const Text('App Notifications'),
+                ),
+                SettingsTile.switchTile(
+                  initialValue: false,
+                  onToggle: (value) {},
+                  title: const Text('Email Updates'),
+                  leading: const Icon(Icons.mail_outline),
+                ),
+              ],
+            ),
+            SettingsSection(
+              title: const Text('About'),
+              tiles: [
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('About App'),
+                  onPressed: (context) {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'Cache Me If You Can',
+                      applicationVersion: 'v1.0.0',
+                      applicationLegalese: '© 2025 Cache Me If You Can Inc.',
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
