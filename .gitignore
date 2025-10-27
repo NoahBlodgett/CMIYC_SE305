@@ -1,0 +1,51 @@
+# Large data files
+*.csv
+!staples.csv
+!nutrition.csv
+
+# Python virtual environment (IMPORTANT!)
+.venv/
+venv/
+env/
+ML_Service/.venv/
+ML_Service/venv/
+ML_Service/env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
