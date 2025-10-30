@@ -1,0 +1,12 @@
+//fastapi
+//uvicorn[standard]
+//pydantic
+//numpy
+//pandas
+//pulp
+//lightgbm
+//xgboost
+//scikit-learn
+//orjson
+//python-dotenv
+//requests
