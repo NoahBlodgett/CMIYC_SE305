@@ -7,3 +7,9 @@ const { logger } = require("firebase-functions");
 const app = initializeApp();
 const db = getFirestore();
 
+// Simple HTTP function to verify Functions (and emulator) are running.
+exports.ping = onRequest((req, res) => {
+	logger.info("Ping received", { time: Date.now() });
+	res.json({ ok: true, ts: Date.now() });
+});
+

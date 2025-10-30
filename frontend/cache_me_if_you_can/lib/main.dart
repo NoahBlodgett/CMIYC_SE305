@@ -1,11 +1,15 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'pages/settings_page.dart';
 import 'styles/styles.dart';
 import 'pages/workout_page.dart';
 import 'widgets/homePageWidgets/progress_waves.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,11 +18,15 @@ Future<void> main() async {
   // (for example Windows desktop before you run `flutterfire configure`),
   // catch the exception and show a helpful error UI instead of crashing.
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
     // For development, sign in anonymously so currentUser is available.
     if (kDebugMode) {
       try {
+        // Point to local emulators in debug/dev to avoid hitting prod
+        await _useFirebaseEmulators();
         await FirebaseAuth.instance.signInAnonymously();
       } catch (_) {
         // ignore errors in debug sign-in
@@ -34,6 +42,21 @@ Future<void> main() async {
       runApp(ErrorApp(e.toString()));
     }
   }
+}
+
+// In debug, route Firebase services to local emulators when available.
+Future<void> _useFirebaseEmulators() async {
+  final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+  // Firestore
+  FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: false,
+    sslEnabled: false,
+  );
+  // Auth
+  await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+  // Functions
+  FirebaseFunctions.instance.useFunctionsEmulator(host, 5001);
 }
 
 class ErrorApp extends StatelessWidget {
