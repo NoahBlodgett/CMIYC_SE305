@@ -1,4 +1,3 @@
-
 class User 
 {
   constructor(name, age) 
@@ -29,12 +28,20 @@ class User
   getPreferences() { return this.preferences; }
 
   // --- Setters ---
+  setUserID() { return; }
+
   setName(name) { this.name = name; }
+
   setAge(age) { this.age = age; }
+
   setEmail(email) { this.email = email; }
+
   setHeight(height) { this.height = height; }
+
   setWeight(weight) { this.weight = weight; }
+
   setGoalWeight(goal_weight) { this.goal_weight = goal_weight; }
+
   setPreferences(workout_type, diet_type) 
   {
     this.workout_type = workout_type;

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const validators = require('../utils/validators');
 /*
 Example for what a request looks like
 // When someone makes this request:
@@ -21,7 +22,6 @@ req = {
   headers: { ... },        // Browser info, auth tokens, etc.
   // ... lots of other stuff
 } */
-
 
 function createUser(req, res)
 {
