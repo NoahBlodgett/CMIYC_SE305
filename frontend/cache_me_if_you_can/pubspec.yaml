@@ -41,6 +41,10 @@ dependencies:
   image_picker: ^1.2.0
   http: ^1.1.0
   settings_ui: ^2.0.2
+  gradient_borders: ^1.0.2
+  shared_preferences: ^2.3.2
+  # Use the maintained v2 fork compatible with modern Flutter theming APIs
+  liquid_progress_indicator_v2: ^0.5.0
 
 dev_dependencies:
   flutter_test:

@@ -117,6 +117,35 @@ final Map<String, dynamic> mockRecommendations = {
 
 const Duration _mockNetworkDelay = Duration(milliseconds: 400);
 
+// Programs mock ---------------------------------------------------------
+
+final List<String> mockPrograms = <String>[
+  'Beginner Full Body (Week 3)',
+  'Push/Pull/Legs Split',
+  '5K Training Plan',
+  'Upper/Lower Strength',
+];
+
+String mockCurrentProgramName = mockPrograms.first;
+
+Future<String> fetchCurrentProgramName() async {
+  await Future.delayed(_mockNetworkDelay);
+  return mockCurrentProgramName;
+}
+
+Future<List<String>> fetchRecentPrograms({int limit = 10}) async {
+  await Future.delayed(_mockNetworkDelay);
+  return List<String>.from(mockPrograms.take(limit));
+}
+
+Future<void> setCurrentProgramName(String name) async {
+  await Future.delayed(_mockNetworkDelay);
+  mockCurrentProgramName = name;
+  if (!mockPrograms.contains(name)) {
+    mockPrograms.insert(0, name);
+  }
+}
+
 Future<Map<String, dynamic>> mockLogin(String email, String password) async {
   // Simulate checking credentials; password is not validated in this mock.
   await Future.delayed(_mockNetworkDelay);

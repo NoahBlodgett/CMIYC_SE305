@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'pages/settings_page.dart';
 import 'styles/styles.dart';
+import 'pages/workout_page.dart';
+import 'widgets/homePageWidgets/progress_waves.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,6 +119,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
+    // Compute responsive size for the circular progress widgets to avoid overflow.
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Body has 16px horizontal padding on both sides, Row has a 16px spacer between items.
+    final availableRow =
+        (screenWidth - 32.0) -
+        1.0; // subtract 1px as safety to avoid rounding overflow
+    final perItem = (availableRow - 16.0) / 2.0;
+    // Clamp each circle between 120 and 160; they will shrink on narrow screens.
+    final double circleSize = perItem.clamp(120.0, 160.0);
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -139,7 +150,10 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.notifications),
             onPressed: () {
-              // nothing so far
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const WorkoutPage()),
+              );
             },
           ),
           IconButton(
@@ -155,9 +169,32 @@ class _HomePageState extends State<HomePage> {
         // AppBar theming (colors, elevation, bottom border) comes from AppTheme
         toolbarHeight: 60,
       ),
-      body: const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text("Hello World!"),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                ProgressWidget(
+                  progress: 0.72,
+                  goalLabel: "Steps",
+                  value: "5,200",
+                  color: Colors.greenAccent,
+                  size: circleSize,
+                ),
+                const SizedBox(width: 16),
+                ProgressWidget(
+                  progress: 0.45,
+                  goalLabel: "Calories",
+                  value: "450",
+                  color: Colors.orangeAccent,
+                  size: circleSize,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
