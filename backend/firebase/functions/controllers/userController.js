@@ -32,20 +32,20 @@ async function createUser(req, res)
       const { 
         name, 
         age, 
-        gender = '', 
+        gender, 
         email, 
         password,
-        height = '', 
-        weight = 0.0, 
+        height, 
+        weight, 
         allergies = '', 
-        activity_level = 0.0
+        activity_level
       } = req.body;
 
       // Validate required fields
-      if (!name || !age || !email || !password) 
+      if (!name || !age || !gender || !email || !password || !height || weight === undefined || activity_level === undefined) 
       {
           return res.status(400).json({ 
-            error: 'Missing required fields: name, age, email, password' 
+            error: 'Missing required fields: name, age, gender, email, password, height, weight, activity_level' 
           });
       }
 
@@ -73,6 +73,49 @@ async function createUser(req, res)
           });
       }
 
+      // Validate gender
+      if(!validators.isValidGender(gender))
+      {
+          return res.status(400).json({ 
+            error: 'Invalid gender' 
+          });
+      }
+
+      // Validate height
+      if(!validators.isValidHeight(height))
+      {
+          return res.status(400).json({ 
+            error: 'Invalid height' 
+          });
+      }
+
+      // Validate weight
+      const parsedWeight = parseFloat(weight);
+      if(!validators.isValidWeight(parsedWeight))
+      {
+          return res.status(400).json({ 
+            error: 'Invalid weight' 
+          });
+      }
+
+      // Validate activity level
+      const parsedActivityLevel = parseFloat(activity_level);
+      if(!validators.isValidActivityLevel(parsedActivityLevel))
+      {
+          return res.status(400).json({ 
+            error: 'Invalid activity level' 
+          });
+      }
+
+      // Optional fields
+      // Validate allergies if provided
+      if(allergies && !validators.isValidAllergies(allergies))
+      {
+          return res.status(400).json({ 
+            error: 'Invalid allergies format' 
+          });
+      }
+
       // Check if user already exists in Firestore
       const db = getFirestore();
       const existingUser = await db.collection('users')
@@ -97,22 +140,9 @@ async function createUser(req, res)
 
       const userID = authUser.uid;
 
-      // Create User object
-      const newUser = new User(name, age);
+      // Create User object with all required fields
+      const newUser = new User(name, age, gender, email, height, parsedWeight, parsedActivityLevel, allergies);
       newUser.setUserID(userID);
-      newUser.setEmail(email);
-      
-      // Set optional fields with type coercion and validation
-      if (validators.isValidGender(gender)) newUser.setGender(gender);
-      if (validators.isValidHeight(height)) newUser.setHeight(height);
-      
-      const parsedWeight = parseFloat(weight) || 0.0;
-      if (validators.isValidWeight(parsedWeight)) newUser.setWeight(parsedWeight);
-      
-      const parsedActivityLevel = parseFloat(activity_level) || 0.0;
-      if (validators.isValidActivityLevel(parsedActivityLevel)) newUser.setActivityLevel(parsedActivityLevel);
-      
-      if (validators.isValidAllergies(allergies)) newUser.setAllergies(allergies);
 
       // Save to Firestore with rollback on failure
       try 

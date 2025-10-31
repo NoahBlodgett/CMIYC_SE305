@@ -1,16 +1,16 @@
 class User 
 {
-  constructor(name, age) 
+  constructor(name, age, gender, email, height, weight, activity_level, allergies = '') 
   {
     this.user_id = null;
     this.name = name;
     this.age = age;
-    this.gender = '';
-    this.email = '';
-    this.height = '';
-    this.weight = 0.0;
-    this.allergies = '';
-    this.activity_level = 0.0;
+    this.gender = gender;
+    this.email = email;
+    this.height = height;
+    this.weight = weight;
+    this.activity_level = activity_level;
+    this.allergies = allergies;
   }
 
   // --- Getters ---
