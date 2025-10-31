@@ -9,7 +9,6 @@ class User
     this.email = '';
     this.height = '';
     this.weight = 0.0;
-    this.workout_type = '';
     this.allergies = '';
     this.activity_level = 0.0;
   }
@@ -25,7 +24,7 @@ class User
   getActivityLevel() { return this.activity_level; }  
 
   // --- Setters ---
-  setUserID() { return; }
+  setUserID(user_id) { this.user_id = user_id; }
   setName(name) { this.name = name; }
   setAge(age) { this.age = age; }
   setGender(gender) { this.gender = gender; }
@@ -33,6 +32,7 @@ class User
   setHeight(height) { this.height = height; }
   setWeight(weight) { this.weight = weight; }
   setAllergies(allergies) { this.allergies = allergies; }
+  setActivityLevel(activity_level) { this.activity_level = activity_level; }
 
   toJSON()
     {

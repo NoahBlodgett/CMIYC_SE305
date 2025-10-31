@@ -68,6 +68,57 @@ function isValidActivityLevel(activity_level)
     return(validLevels.includes(activity_level));
 }
 
+function isValidAllergies(allergies)
+{
+    // Allow empty allergies (no allergies is valid)
+    if (!allergies || allergies === '') {
+        return true;
+    }
+
+    let allergyList = [];
+    
+    // Handle if allergies is passed as a string (comma-separated)
+    if (typeof allergies === 'string') 
+    {
+        allergyList = allergies.split(',').map(allergy => allergy.trim());
+    } 
+    // Handle if allergies is passed as an array
+    else if (Array.isArray(allergies)) 
+    {
+        allergyList = allergies.map(allergy => allergy.toString().trim());
+    } 
+    else 
+    {
+        return false; // Invalid type
+    }
+
+    // Check each allergy
+    for (let allergy of allergyList) 
+    {
+        // Skip empty entries
+        if (allergy === '') continue;
+        
+        // Check that it doesn't contain numbers
+        if (/\d/.test(allergy)) 
+        {
+            return false;
+        }
+        
+        // Check that it only contains valid word characters (letters, spaces, hyphens)
+        if (!/^[a-zA-Z\s\-]+$/.test(allergy)) 
+        {
+            return false;
+        }
+        
+        // Check reasonable length (at least 2 characters, max 50)
+        if (allergy.length < 2 || allergy.length > 50) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 // Export the functions so other files can use them
 module.exports = 
 {
@@ -77,5 +128,6 @@ module.exports =
     isValidHeight,
     isValidAge,
     isValidGender,
-    isValidActivityLevel
+    isValidActivityLevel,
+    isValidAllergies
 };
