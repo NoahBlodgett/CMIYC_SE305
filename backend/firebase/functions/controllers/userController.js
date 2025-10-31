@@ -122,7 +122,9 @@ async function createUser(req, res)
         // Rollback: Delete the Auth user if Firestore write fails
         console.error('Firestore write failed, rolling back Auth user:', firestoreError);
         await auth.deleteUser(userID);
-        throw firestoreError;
+        return res.status(500).json({ 
+          error: 'Internal server error' 
+    });
       }
 
       // Return success response (without sensitive data)
