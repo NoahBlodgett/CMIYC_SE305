@@ -1,5 +1,5 @@
 const User = require('../models/User');
-const validators = require('../utils/validators');
+const validators = require('../utils/userValidators');
 /*
 Example for what a request looks like
 // When someone makes this request:
