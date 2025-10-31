@@ -236,6 +236,10 @@ async function updateUser(req, res)
     const {userID} = req.params;
     
     const { 
+      name,
+      age,
+      gender,
+      height,
       weight, 
       allergies, 
       activity_level, 
@@ -261,6 +265,27 @@ async function updateUser(req, res)
     let authUpdates = {};
 
     // Update Firestore fields only if provided and valid
+    if(name !== undefined && name !== '') 
+    {
+      updates.name = name;
+      authUpdates.displayName = name;
+    }
+
+    if(age !== undefined && validators.isValidAge(age)) 
+    {
+      updates.age = age;
+    }
+
+    if(gender !== undefined && validators.isValidGender(gender)) 
+    {
+      updates.gender = gender;
+    }
+
+    if(height !== undefined && validators.isValidHeight(height)) 
+    {
+      updates.height = height;
+    }
+
     if(weight !== undefined && validators.isValidWeight(parseFloat(weight))) 
     {
       updates.weight = parseFloat(weight);
