@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:settings_ui/settings_ui.dart';
 import '../widgets/settingsWidgets/user_profile.dart';
 
@@ -117,6 +119,46 @@ class SettingsPage extends StatelessWidget {
                       applicationVersion: 'v1.0.0',
                       applicationLegalese: '© 2025 Cache Me If You Can Inc.',
                     );
+                  },
+                ),
+              ],
+            ),
+            SettingsSection(
+              title: const Text('Developer'),
+              tiles: [
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.verified_user_outlined),
+                  title: const Text('Verify App Check'),
+                  value: const Text('Debug token check'),
+                  onPressed: (context) async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    try {
+                      final token = await FirebaseAppCheck.instance.getToken(
+                        true,
+                      );
+                      if (token != null && token.isNotEmpty) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'App Check token acquired (${token.substring(0, 8)}...)',
+                            ),
+                          ),
+                        );
+                      } else {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('No App Check token returned'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (kDebugMode) {
+                        debugPrint('App Check token error: $e');
+                      }
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('App Check error: $e')),
+                      );
+                    }
                   },
                 ),
               ],

@@ -1,9 +1,10 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateUserRequest {
   final String name;
   final int age;
-  final String gender; // e.g., 'male' | 'female' | 'other'
+  final String gender; // e.g., 'male' | 'female | 'other'
   final String email;
   final String password;
   final double height; // cm or inches depending on backend
@@ -45,23 +46,27 @@ class CreateUserResponse {
 }
 
 class AuthApi {
-  final FirebaseFunctions _functions;
-  AuthApi({FirebaseFunctions? functions})
-    : _functions = functions ?? FirebaseFunctions.instance;
+  const AuthApi();
 
-  /// Calls the HTTPS Callable function named 'createUser'. Ensure your backend
-  /// exports this function and your emulator/production settings are configured
-  /// (see main.dart for emulator wiring).
+  /// Create user directly via Firebase Auth + Firestore (Spark-plan friendly).
   Future<CreateUserResponse> createUser(CreateUserRequest req) async {
-    final callable = _functions.httpsCallable('createUser');
-    final result = await callable.call(req.toJson());
-    final data = (result.data as Map).cast<String, dynamic>();
-    return CreateUserResponse(
-      message: data['message']?.toString() ?? 'User created',
-      uid: data['uid']?.toString() ?? '',
-      user: data['user'] is Map
-          ? (data['user'] as Map).cast<String, dynamic>()
-          : null,
+    final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: req.email,
+      password: req.password,
     );
+    await cred.user?.updateDisplayName(req.name);
+    final uid = cred.user?.uid ?? '';
+
+    // Minimal Firestore user doc for initial creation; onboarding will fill the rest
+    final data = <String, dynamic>{
+      'email': req.email,
+      'onboarding_completed': false,
+    };
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .set(data, SetOptions(merge: true));
+
+    return CreateUserResponse(message: 'User created', uid: uid, user: data);
   }
 }

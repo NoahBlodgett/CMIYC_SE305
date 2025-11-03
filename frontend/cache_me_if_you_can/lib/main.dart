@@ -33,16 +33,36 @@ Future<void> main() async {
 
     await Firebase.initializeApp(options: options);
 
-    // Enable Firebase App Check to remove warnings and harden API calls.
-    // Use debug providers in debug builds; use real providers in release.
-    await FirebaseAppCheck.instance.activate(
-      // ignore: deprecated_member_use
-      androidProvider: kDebugMode
-          ? AndroidProvider.debug
-          : AndroidProvider.playIntegrity,
-      // ignore: deprecated_member_use
-      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
+    // Optionally enable Firebase App Check. You can disable it during local
+    // development with: --dart-define=APP_CHECK_ENABLED=false
+    const appCheckEnabled = bool.fromEnvironment(
+      'APP_CHECK_ENABLED',
+      defaultValue: true,
     );
+    if (appCheckEnabled) {
+      try {
+        // Enable Firebase App Check to remove warnings and harden API calls.
+        // Use debug providers in debug builds; use real providers in release.
+        await FirebaseAppCheck.instance.activate(
+          // ignore: deprecated_member_use
+          androidProvider: kDebugMode
+              ? AndroidProvider.debug
+              : AndroidProvider.playIntegrity,
+          // ignore: deprecated_member_use
+          appleProvider: kDebugMode
+              ? AppleProvider.debug
+              : AppleProvider.appAttest,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('App Check activation skipped due to error: $e');
+        }
+      }
+    } else {
+      if (kDebugMode) {
+        debugPrint('App Check disabled via APP_CHECK_ENABLED=false');
+      }
+    }
 
     // For development, sign in anonymously so currentUser is available.
     const useEmulators = bool.fromEnvironment(

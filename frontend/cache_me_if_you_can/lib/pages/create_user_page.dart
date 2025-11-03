@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../services/auth_api.dart';
-import 'permissions_page.dart';
+import 'onboarding_page.dart';
+// import 'permissions_page.dart';
 
 class CreateUserPage extends StatefulWidget {
   const CreateUserPage({super.key});
@@ -14,29 +18,16 @@ class CreateUserPage extends StatefulWidget {
 
 class _CreateUserPageState extends State<CreateUserPage> {
   final _formKey = GlobalKey<FormState>();
-
-  final _nameCtrl = TextEditingController();
-  final _ageCtrl = TextEditingController();
-  String _gender = 'male';
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _heightCtrl = TextEditingController();
-  final _weightCtrl = TextEditingController();
-  final _allergiesCtrl = TextEditingController();
-  double _activityLevel = 1.0; // 0.0 - 5.0
 
   bool _submitting = false;
   String? _errorText;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _ageCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
-    _heightCtrl.dispose();
-    _weightCtrl.dispose();
-    _allergiesCtrl.dispose();
     super.dispose();
   }
 
@@ -55,20 +46,6 @@ class _CreateUserPageState extends State<CreateUserPage> {
     return null;
   }
 
-  String? _positiveNum(String? v) {
-    if (_required(v) != null) return 'Required';
-    final d = double.tryParse(v!.trim());
-    if (d == null || d <= 0) return 'Must be > 0';
-    return null;
-  }
-
-  String? _age(String? v) {
-    if (_required(v) != null) return 'Required';
-    final n = int.tryParse(v!.trim());
-    if (n == null || n <= 0) return 'Invalid age';
-    return null;
-  }
-
   Future<void> _submit() async {
     setState(() {
       _errorText = null;
@@ -83,32 +60,28 @@ class _CreateUserPageState extends State<CreateUserPage> {
       await Firebase.initializeApp();
       // If using emulators, they'll be configured in main.dart
 
-      final api = AuthApi(functions: FirebaseFunctions.instance);
-      final req = CreateUserRequest(
-        name: _nameCtrl.text.trim(),
-        age: int.parse(_ageCtrl.text.trim()),
-        gender: _gender,
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
-        height: double.parse(_heightCtrl.text.trim()),
-        weight: double.parse(_weightCtrl.text.trim()),
-        allergies: _allergiesCtrl.text.trim().isEmpty
-            ? null
-            : _allergiesCtrl.text.trim(),
-        activityLevel: _activityLevel,
+      final api = AuthApi();
+      final res = await api.createUser(
+        CreateUserRequest(
+          name: '',
+          age: 0,
+          gender: 'other',
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text,
+          height: 0,
+          weight: 0,
+          allergies: '',
+          activityLevel: 0,
+        ),
       );
-
-      final res = await api.createUser(req);
 
       if (!mounted) return;
       // Optionally sign-in the user on success
       try {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: req.email,
-          password: req.password,
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text,
         );
-        // Ensure the profile shows the user's name for greeting
-        await FirebaseAuth.instance.currentUser?.updateDisplayName(req.name);
         await FirebaseAuth.instance.currentUser?.reload();
       } catch (_) {
         // If sign-in fails (e.g., emulator not running), ignore for now
@@ -118,10 +91,10 @@ class _CreateUserPageState extends State<CreateUserPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(res.message)));
-      // After account creation, ask for permissions.
+      // After account creation, go to onboarding to collect remaining details.
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const PermissionsPage()),
+        MaterialPageRoute(builder: (_) => const OnboardingPage()),
       );
     } catch (e) {
       setState(() {
@@ -148,30 +121,6 @@ class _CreateUserPageState extends State<CreateUserPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: _required,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _ageCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Age'),
-                validator: _age,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _gender,
-                decoration: const InputDecoration(labelText: 'Gender'),
-                items: const [
-                  DropdownMenuItem(value: 'male', child: Text('Male')),
-                  DropdownMenuItem(value: 'female', child: Text('Female')),
-                  DropdownMenuItem(value: 'other', child: Text('Other')),
-                ],
-                onChanged: (v) => setState(() => _gender = v ?? 'other'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(labelText: 'Email'),
@@ -183,40 +132,6 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
                 validator: _password,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _heightCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(labelText: 'Height'),
-                validator: _positiveNum,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _weightCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(labelText: 'Weight'),
-                validator: _positiveNum,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _allergiesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Allergies (optional)',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text('Activity level: ${_activityLevel.toStringAsFixed(1)}'),
-              Slider(
-                value: _activityLevel,
-                min: 0,
-                max: 5,
-                divisions: 50,
-                onChanged: (v) => setState(() => _activityLevel = v),
               ),
               const SizedBox(height: 12),
               if (_errorText != null)
@@ -235,13 +150,119 @@ class _CreateUserPageState extends State<CreateUserPage> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Create Account'),
+                      : const Text('Create account with email'),
                 ),
               ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.g_mobiledata),
+                      onPressed: _submitting ? null : _createWithGoogle,
+                      label: const Text('Continue with Google'),
+                    ),
+                  ),
+                ],
+              ),
+              if (Platform.isIOS || Platform.isMacOS) ...[
+                const SizedBox(height: 8),
+                SignInWithAppleButton(
+                  onPressed: () {
+                    if (_submitting) return;
+                    _createWithApple();
+                  },
+                  style: SignInWithAppleButtonStyle.black,
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _createWithGoogle() async {
+    setState(() => _errorText = null);
+    setState(() => _submitting = true);
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return; // canceled
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+        accessToken: googleAuth.accessToken,
+      );
+      final cred = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = cred.user;
+      if (user != null) {
+        // Ensure minimal user doc exists
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'email': user.email ?? _emailCtrl.text.trim(),
+          'onboarding_completed': false,
+        }, SetOptions(merge: true));
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingPage()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorText = e.message ?? 'Google sign-in failed');
+    } catch (e) {
+      setState(() => _errorText = e.toString());
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _createWithApple() async {
+    if (!(Platform.isIOS || Platform.isMacOS)) {
+      setState(() => _errorText = 'Apple sign-in is only available on Apple');
+      return;
+    }
+    setState(() => _errorText = null);
+    setState(() => _submitting = true);
+    try {
+      final isAvailable = await SignInWithApple.isAvailable();
+      if (!isAvailable) {
+        setState(() => _errorText = 'Sign in with Apple not available');
+        return;
+      }
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final oauth = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+      final cred = await FirebaseAuth.instance.signInWithCredential(oauth);
+      final user = cred.user;
+      if (user != null) {
+        final display = [
+          appleCredential.givenName,
+          appleCredential.familyName,
+        ].where((e) => (e ?? '').isNotEmpty).join(' ');
+        if (display.isNotEmpty) {
+          await user.updateDisplayName(display);
+        }
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'email': user.email ?? '',
+          'onboarding_completed': false,
+        }, SetOptions(merge: true));
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingPage()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() => _errorText = e.message ?? 'Apple sign-in failed');
+    } catch (e) {
+      setState(() => _errorText = e.toString());
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 }

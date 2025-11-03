@@ -2,18 +2,70 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function hasOnlyKeys(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+    function hasKey(k) {
+      return request.resource.data.keys().hasAny([k]);
+    }
 
-    // This rule allows anyone with your Firestore database reference to view, edit,
-    // and delete all data in your Firestore database. It is useful for getting
-    // started, but it is configured to expire after 30 days because it
-    // leaves your app open to attackers. At that time, all client
-    // requests to your Firestore database will be denied.
-    //
-    // Make sure to write security rules for your app before that time, or else
-    // all client requests to your Firestore database will be denied until you Update
-    // your rules
+    // Validation helpers (only enforce if the field is present)
+    function validName() {
+      return !hasKey('name') || (request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100);
+    }
+    function validAge() {
+      return !hasKey('age') || (request.resource.data.age is int && request.resource.data.age > 0 && request.resource.data.age < 130);
+    }
+    function validGender() {
+      return !hasKey('gender') || (request.resource.data.gender in ['male','female','other']);
+    }
+    function validEmail(uid) {
+      return !hasKey('email') || (request.resource.data.email is string && request.resource.data.email == request.auth.token.email);
+    }
+    function validHeight() {
+      return !hasKey('height') || (request.resource.data.height is number && request.resource.data.height > 0 && request.resource.data.height < 300);
+    }
+    function validWeight() {
+      return !hasKey('weight') || (request.resource.data.weight is number && request.resource.data.weight > 0 && request.resource.data.weight < 1000);
+    }
+    function validActivity() {
+      return !hasKey('activity_level') || (request.resource.data.activity_level is number && request.resource.data.activity_level >= 0 && request.resource.data.activity_level <= 5);
+    }
+    function validAllergies() {
+      return !hasKey('allergies') || (request.resource.data.allergies is string);
+    }
+    function validOnboardingFlag() {
+      return !hasKey('onboarding_completed') || (request.resource.data.onboarding_completed is bool);
+    }
+
+    match /users/{uid} {
+      // Create: allow minimal profile (name/email) during onboarding start
+      allow create: if isOwner(uid)
+        && hasOnlyKeys(['name','email','onboarding_completed','allergies'])
+        && validName() && validEmail(uid) && validAllergies() && validOnboardingFlag();
+
+      // Read own document
+      allow read: if isOwner(uid);
+
+      // Update: allow adding remaining fields with validation; email must not change
+      allow update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['name','email','age','gender','height','weight','activity_level','allergies','onboarding_completed'])
+        && validName() && validEmail(uid) && validAge() && validGender() && validHeight() && validWeight() && validActivity() && validAllergies() && validOnboardingFlag()
+        && request.resource.data.email == resource.data.email;
+
+      // Delete own document
+      allow delete: if isOwner(uid);
+    }
+
+    // Deny everything else by default
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2025, 11, 24);
+      allow read, write: if false;
     }
   }
 }

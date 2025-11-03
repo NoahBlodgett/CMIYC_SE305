@@ -40,12 +40,13 @@ class _PermissionsPageState extends State<PermissionsPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('permissionsCompleted', true);
     } finally {
-      if (!mounted) return;
-      setState(() => _requesting = false);
-      // Go to home (auth gate will route properly)
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+      if (mounted) {
+        setState(() => _requesting = false);
+        // Go to home (auth gate will route properly)
+        Navigator.of(
+          context,
+        ).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+      }
     }
   }
 
