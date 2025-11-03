@@ -1,1 +1,13 @@
 #include "Generated.xcconfig"
+
+// Enable debug logging
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) DEBUG=1
+
+// Set the app's API base URL for the debug environment (change this link later)
+APP_API_BASE_URL = "https://api.debug.example.com"
+
+// Enable detailed logging for network requests, disable to reduce interrupts in our debug logs
+OS_ACTIVITY_MODE = "disable"
+
+// Other debug-specific configurations, flag for our testing
+ENABLE_TESTING = YES
