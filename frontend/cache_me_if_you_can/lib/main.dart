@@ -5,11 +5,15 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'pages/settings_page.dart';
 import 'styles/styles.dart';
 import 'pages/workout_page.dart';
 import 'widgets/homePageWidgets/progress_waves.dart';
+import 'pages/login_page.dart';
+import 'pages/create_user_page.dart';
 import 'firebase_options.dart';
+import 'firebase_dev_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,12 +22,34 @@ Future<void> main() async {
   // (for example Windows desktop before you run `flutterfire configure`),
   // catch the exception and show a helpful error UI instead of crashing.
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+    // Resolve Firebase options; if the generated options are missing, use a
+    // dev fallback suitable for emulators.
+    FirebaseOptions options;
+    try {
+      options = DefaultFirebaseOptions.currentPlatform;
+    } catch (_) {
+      options = DevFirebaseOptions.currentPlatform;
+    }
+
+    await Firebase.initializeApp(options: options);
+
+    // Enable Firebase App Check to remove warnings and harden API calls.
+    // Use debug providers in debug builds; use real providers in release.
+    await FirebaseAppCheck.instance.activate(
+      // ignore: deprecated_member_use
+      androidProvider: kDebugMode
+          ? AndroidProvider.debug
+          : AndroidProvider.playIntegrity,
+      // ignore: deprecated_member_use
+      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
     );
 
     // For development, sign in anonymously so currentUser is available.
-    if (kDebugMode) {
+    const useEmulators = bool.fromEnvironment(
+      'USE_EMULATORS',
+      defaultValue: true,
+    );
+    if (kDebugMode && useEmulators) {
       try {
         // Point to local emulators in debug/dev to avoid hitting prod
         await _useFirebaseEmulators();
@@ -46,7 +72,14 @@ Future<void> main() async {
 
 // In debug, route Firebase services to local emulators when available.
 Future<void> _useFirebaseEmulators() async {
-  final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+  // Allow overriding the host via --dart-define=EMULATOR_HOST=192.168.x.x when testing on a phone.
+  const hostOverride = String.fromEnvironment(
+    'EMULATOR_HOST',
+    defaultValue: '',
+  );
+  final host = hostOverride.isNotEmpty
+      ? hostOverride
+      : (Platform.isAndroid ? '10.0.2.2' : 'localhost');
   // Firestore
   FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
   FirebaseFirestore.instance.settings = const Settings(
@@ -94,7 +127,13 @@ class ErrorApp extends StatelessWidget {
                   onPressed: () async {
                     // Try a simple retry (useful after adding config files)
                     try {
-                      await Firebase.initializeApp();
+                      FirebaseOptions options;
+                      try {
+                        options = DefaultFirebaseOptions.currentPlatform;
+                      } catch (_) {
+                        options = DevFirebaseOptions.currentPlatform;
+                      }
+                      await Firebase.initializeApp(options: options);
                       // Restart the app by calling runApp again
                       runApp(const MyApp());
                     } catch (e) {
@@ -125,8 +164,36 @@ class MyApp extends StatelessWidget {
       title: 'Momentum',
       // Apply centralized theme from styles.dart
       theme: AppTheme.lightTheme,
-      home: const HomePage(),
+      home: const _AuthGate(),
+      routes: {
+        '/login': (_) => const LoginPage(),
+        '/signup': (_) => const CreateUserPage(),
+      },
       debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final user = snap.data;
+        if (user == null) {
+          // First screen: Login when not signed in
+          return const LoginPage();
+        }
+        return const HomePage();
+      },
     );
   }
 }
@@ -136,7 +203,6 @@ class HomePage extends StatefulWidget {
 
   @override
   State<HomePage> createState() => _HomePageState();
-  final String user = "Nathan";
 }
 
 class _HomePageState extends State<HomePage> {
@@ -157,7 +223,7 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Hello, ${widget.user}",
+              _greetingName(),
               // Use themed headline style from AppTheme
               style: Theme.of(context).textTheme.headlineSmall,
             ),
@@ -188,6 +254,16 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            tooltip: 'Login / Sign up',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            },
+          ),
         ],
         // AppBar theming (colors, elevation, bottom border) comes from AppTheme
         toolbarHeight: 60,
@@ -195,30 +271,74 @@ class _HomePageState extends State<HomePage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                ProgressWidget(
-                  progress: 0.72,
-                  goalLabel: "Steps",
-                  value: "5,200",
-                  color: Colors.greenAccent,
-                  size: circleSize,
-                ),
-                const SizedBox(width: 16),
-                ProgressWidget(
-                  progress: 0.45,
-                  goalLabel: "Calories",
-                  value: "450",
-                  color: Colors.orangeAccent,
-                  size: circleSize,
-                ),
-              ],
+            Center(
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                alignment: WrapAlignment.center,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ProgressWidget(
+                        progress: 0.72,
+                        goalLabel: '', // hide center text for clarity
+                        value: '',
+                        color: Colors.greenAccent,
+                        size: circleSize,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '5,200 steps',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      Text(
+                        'Goal: 7,200',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // If you want live calories from mock/DB, swap to CaloriesProgressLoader
+                      ProgressWidget(
+                        progress: 0.18,
+                        goalLabel: '',
+                        value: '',
+                        color: Colors.orangeAccent,
+                        size: circleSize,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '320 / 2500 kcal',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      Text(
+                        "Today's calories",
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+extension on _HomePageState {
+  String _greetingName() {
+    final user = FirebaseAuth.instance.currentUser;
+    final base = user?.displayName?.trim();
+    final name = (base != null && base.isNotEmpty)
+        ? base
+        : (user?.email != null ? user!.email!.split('@').first : 'Friend');
+    return 'Hello, $name';
   }
 }
