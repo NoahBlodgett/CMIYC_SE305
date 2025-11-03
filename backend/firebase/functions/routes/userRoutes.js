@@ -8,14 +8,14 @@ const { authenticate, authorizeUser, rateLimit } = require('../middleware/auth')
  * Create a new user account
  * Public endpoint - no authentication required
  */
-router.post('/', userController.createUser);
+router.post('/users', userController.createUser);
 
 /**
  * GET /users/:userID
  * Get user information
  * Requires: Authentication + User must be accessing their own account
  */
-router.get('/:userID', 
+router.get('/users/:userID', 
   authenticate, 
   authorizeUser, 
   userController.getUser
@@ -27,7 +27,7 @@ router.get('/:userID',
  * Requires: Authentication + User must be accessing their own account
  * Rate limited: 5 requests per minute to prevent abuse
  */
-router.patch('/:userID', 
+router.patch('/users/:userID', 
   authenticate, 
   authorizeUser, 
   rateLimit(5, 60000), // 5 requests per 60 seconds
@@ -40,7 +40,7 @@ router.patch('/:userID',
  * Requires: Authentication + User must be accessing their own account
  * Rate limited: 3 requests per minute for safety
  */
-router.delete('/:userID', 
+router.delete('/users/:userID', 
   authenticate, 
   authorizeUser,
   rateLimit(3, 60000), // 3 requests per 60 seconds
