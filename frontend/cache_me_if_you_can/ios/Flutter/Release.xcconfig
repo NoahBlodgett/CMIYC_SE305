@@ -1,1 +1,13 @@
 #include "Generated.xcconfig"
+
+// Disable debug logging 
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) NDEBUG=1
+
+// Set the app's API base URL for the release environment
+APP_API_BASE_URL = "https://api.production.example.com"
+
+// Enable system logging for production monitoring
+OS_ACTIVITY_MODE = "enable"
+
+// Other release-specific configurations, disabling testing features in the release build
+ENABLE_TESTING = NO
