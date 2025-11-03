@@ -48,7 +48,8 @@ class CaloriesProgressLoader extends StatefulWidget {
   // If false, the circle won't render text in the center (value/label).
   final bool showCenterText;
   // Optional builder to render info below the circle using loaded data.
-  final Widget Function(BuildContext context, int total, int target)? bottomBuilder;
+  final Widget Function(BuildContext context, int total, int target)?
+  bottomBuilder;
 
   const CaloriesProgressLoader({
     super.key,
