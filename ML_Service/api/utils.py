@@ -1,0 +1,40 @@
+import pandas as pd
+from pathlib import Path
+
+def filterFoods(user, food_data_path="../data/foods/staples.csv"):
+    """
+    Filter foods based on user allergies and preferences
+    
+    Args:
+        user: Dict with 'allergies' and 'preferences' keys
+        food_data_path: Path to CSV with food data
+        
+    Returns:
+        DataFrame with filtered foods
+    """
+    # Handle both dict and object
+    if isinstance(user, dict):
+        allergies = user.get('allergies', [])
+        dislikes = user.get('preferences', [])
+    else:
+        allergies = getattr(user, 'allergies', [])
+        dislikes = getattr(user, 'preferences', [])
+    
+    # Load food database
+    foods_df = pd.read_csv(food_data_path)
+    
+    # Combine all terms to exclude
+    exclude_terms = allergies + dislikes
+    
+    # If no exclusions, return all foods
+    if not exclude_terms:
+        return foods_df
+    
+    # Create regex pattern: "peanut|egg|liver|anchovy"
+    pattern = '|'.join(exclude_terms)
+    
+    # Keep rows that DON'T contain any of these terms
+    # ~ inverts so we get all rows that don't match
+    filtered_df = foods_df[~foods_df['food_name'].str.contains(pattern, case=False, na=False)]
+    
+    return filtered_df.reset_index(drop=True)

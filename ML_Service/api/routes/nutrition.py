@@ -1,55 +1,85 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import List
+import sys
+from pathlib import Path
 
-router = APIRouter(prefix="/nutrition", tags=["nutrition"])
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parents[2]))
 
-@router.get("/feedback")
-def get_feedback():
-    return {"message": "Nutrition Feedback"}
+from api.services.ml_models.nutritionRanker import getUserTarget
+from api.utils import filterFoods
 
-@router.post("/generate")
-def generate_plan(response):
+router = APIRouter(prefix="/api/nutrition", tags=["nutrition"])
 
-    response = {
-        "Plan": "Balanced High-Protein",
-        "meals": [
-            {
-                "meal": "Breakfast",
-                "items": [
-                    {"food": "Greek Yogurt", "grams": 200, "calories": 130, "protein": 23, "carbs": 7, "fats": 0},
-                    {"food": "Oats", "grams": 50, "calories": 190, "protein": 6, "carbs": 33, "fats": 4},
-                    {"food": "Banana", "grams": 120, "calories": 110, "protein": 1, "carbs": 27, "fats": 0}
-                ]
-            },
-            {
-                "meal": "Lunch",
-                "items": [
-                    {"food": "Grilled Chicken Breast", "grams": 150, "calories": 250, "protein": 45, "carbs": 0, "fats": 5},
-                    {"food": "Cooked Rice", "grams": 200, "calories": 260, "protein": 5, "carbs": 56, "fats": 1},
-                    {"food": "Olive Oil", "grams": 10, "calories": 90, "protein": 0, "carbs": 0, "fats": 10}
-                ]
-            },
-            {
-                "meal": "Dinner",
-                "items": [
-                    {"food": "Baked Salmon", "grams": 150, "calories": 280, "protein": 30, "carbs": 0, "fats": 17},
-                    {"food": "Sweet Potato", "grams": 180, "calories": 160, "protein": 3, "carbs": 37, "fats": 0},
-                    {"food": "Steamed Spinach", "grams": 75, "calories": 20, "protein": 2, "carbs": 3, "fats": 0}
-                ]
-            },
-            {
-                "meal": "Snack",
-                "items": [
-                    {"food": "Protein Bar", "grams": 60, "calories": 200, "protein": 20, "carbs": 20, "fats": 7}
-                ]
+class UserData(BaseModel):
+    """User data required for nutrition calculations"""
+    Height_in: float
+    Weight_lb: float
+    Age: int
+    Gender: int  # 0 = female, 1 = male
+    Activity_Level: int  # 0-4 scale
+    Goal: int  # -1 = lose, 0 = maintain, 1 = gain
+    allergies: List[str] = []
+    preferences: List[str] = []
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "Height_in": 70,
+                "Weight_lb": 180,
+                "Age": 25,
+                "Gender": 1,
+                "Activity_Level": 2,
+                "Goal": 0,
+                "allergies": ["peanut", "shellfish"],
+                "preferences": ["liver"]
             }
-        ],
-        "totals": {
-            "calories": 2010,
-            "protein": 135,
-            "carbs": 180,
-            "fats": 44
+        }
+
+@router.post("/calculate")
+async def calculate_nutrition(user: UserData):
+    """
+    Calculate target calories, macros, and filter foods based on user profile
+    
+    Returns:
+        - calories: Recommended daily calories
+        - protein_g: Grams of protein
+        - fat_g: Grams of fat
+        - carb_g: Grams of carbohydrates
+        - available_foods_count: Number of foods after filtering
+        - foods_preview: Sample of available foods
+    """
+    try:
+        # Convert Pydantic model to dict for ML functions
+        user_dict = user.dict()
+        
+        # Get target calories and macros from ML model
+        nutrition_targets = getUserTarget(user_dict)
+        
+        # Filter foods based on allergies/preferences
+        filtered_foods = filterFoods(user_dict, food_data_path="data/foods/staples.csv")
+        
+        return {
+            "nutrition_targets": nutrition_targets,
+            "available_foods_count": len(filtered_foods),
+            "foods_preview": filtered_foods.head(10).to_dict('records')
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid user data: {str(e)}")
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Data file not found: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating nutrition: {str(e)}")
+
+@router.get("/test")
+async def test_nutrition():
+    """Test endpoint to verify nutrition service is working"""
+    return {
+        "status": "Nutrition service is running",
+        "endpoints": {
+            "POST /api/nutrition/calculate": "Calculate nutrition plan for user"
         }
     }
-
-    return response
 
