@@ -250,7 +250,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   decimal: true,
                 ),
                 decoration: const InputDecoration(
-                  labelText: 'Weight (e.g., kg)',
+                  labelText: 'Weight (e.g., lbs)',
                 ),
                 validator: positiveDoubleValidator,
               ),
