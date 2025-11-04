@@ -274,16 +274,6 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            tooltip: 'Login / Sign up',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
-            },
-          ),
         ],
         // AppBar theming (colors, elevation, bottom border) comes from AppTheme
         toolbarHeight: 60,

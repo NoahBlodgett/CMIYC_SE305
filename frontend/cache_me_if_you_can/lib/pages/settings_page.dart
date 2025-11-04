@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:settings_ui/settings_ui.dart';
 import '../widgets/settingsWidgets/user_profile.dart';
+import 'security_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -57,10 +59,9 @@ class SettingsPage extends StatelessWidget {
                   leading: const Icon(Icons.lock_outline),
                   title: const Text('Password & Security'),
                   onPressed: (context) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Security page coming soon'),
-                      ),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SecurityPage()),
                     );
                   },
                 ),
@@ -158,6 +159,28 @@ class SettingsPage extends StatelessWidget {
                       messenger.showSnackBar(
                         SnackBar(content: Text('App Check error: $e')),
                       );
+                    }
+                  },
+                ),
+              ],
+            ),
+            // Logout section at the bottom
+            SettingsSection(
+              tiles: [
+                SettingsTile.navigation(
+                  leading: Icon(Icons.logout, color: theme.colorScheme.error),
+                  title: Text(
+                    'Log out',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                  onPressed: (context) async {
+                    // Capture navigator before async gap to satisfy lints
+                    final nav = Navigator.of(context);
+                    try {
+                      await FirebaseAuth.instance.signOut();
+                    } finally {
+                      // Pop to root; _AuthGate will route to LoginPage
+                      nav.popUntil((route) => route.isFirst);
                     }
                   },
                 ),

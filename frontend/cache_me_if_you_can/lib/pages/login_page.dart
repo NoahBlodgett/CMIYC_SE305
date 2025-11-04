@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'create_user_page.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -38,8 +39,8 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
       );
+
       if (!mounted) return;
-      Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
       setState(() => _error = e.message ?? 'Login failed');
     } catch (e) {
@@ -71,8 +72,8 @@ class _LoginPageState extends State<LoginPage> {
         accessToken: googleAuth.accessToken,
       );
       await FirebaseAuth.instance.signInWithCredential(credential);
+      // Let AuthGate route to HomePage automatically.
       if (!mounted) return;
-      Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
       setState(() => _error = e.message ?? 'Google sign-in failed');
     } catch (e) {
@@ -113,8 +114,8 @@ class _LoginPageState extends State<LoginPage> {
         accessToken: appleCredential.authorizationCode,
       );
       await FirebaseAuth.instance.signInWithCredential(oauth);
+      // Let AuthGate route to HomePage automatically.
       if (!mounted) return;
-      Navigator.of(context).pop(true);
     } on FirebaseAuthException catch (e) {
       setState(() => _error = e.message ?? 'Apple sign-in failed');
     } catch (e) {
@@ -163,7 +164,7 @@ class _LoginPageState extends State<LoginPage> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Login with email'),
+                          : const Text('Login'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -178,25 +179,21 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.g_mobiledata),
+                      icon: const FaIcon(FontAwesomeIcons.google),
                       onPressed: _busy ? null : _signInWithGoogle,
-                      label: const Text('Sign in with Google'),
+                      label: const Text('Continue with Google'),
                     ),
                   ),
                 ],
               ),
               if (Platform.isIOS || Platform.isMacOS) ...[
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.apple),
-                        onPressed: _busy ? null : _signInWithApple,
-                        label: const Text('Sign in with Apple'),
-                      ),
-                    ),
-                  ],
+                SignInWithAppleButton(
+                  onPressed: () {
+                    if (_busy) return;
+                    _signInWithApple();
+                  },
+                  style: SignInWithAppleButtonStyle.black,
                 ),
               ],
             ],

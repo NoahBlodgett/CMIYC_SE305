@@ -7,7 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../services/auth_api.dart';
 import 'onboarding_page.dart';
-// import 'permissions_page.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class CreateUserPage extends StatefulWidget {
   const CreateUserPage({super.key});
@@ -150,7 +150,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Create account with email'),
+                      : const Text('Create account'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -158,7 +158,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.g_mobiledata),
+                      icon: const FaIcon(FontAwesomeIcons.google),
                       onPressed: _submitting ? null : _createWithGoogle,
                       label: const Text('Continue with Google'),
                     ),
