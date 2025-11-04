@@ -480,18 +480,18 @@ class _SecurityPageState extends State<SecurityPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Security tips',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
-            Text(
+            const SizedBox(height: 8),
+            const Text(
               '• Use a unique, strong password and don\'t reuse it across apps.',
             ),
-            Text('• Enable 2FA when available.'),
-            Text('• Review app permissions regularly.'),
-            Text('• Be cautious of phishing emails and links.'),
+            const Text('• Enable 2FA when available.'),
+            const Text('• Review app permissions regularly.'),
+            const Text('• Be cautious of phishing emails and links.'),
           ],
         ),
       ),
