@@ -23,9 +23,3 @@ expressApp.use('/users', userRoutes);
 // Export the Express app as a Cloud Function
 exports.api = onRequest(expressApp);
 
-// Simple HTTP function to verify Functions (and emulator) are running.
-exports.ping = onRequest((req, res) => {
-	logger.info("Ping received", { time: Date.now() });
-	res.json({ ok: true, ts: Date.now() });
-});
-
