@@ -1,6 +1,4 @@
 import pandas as pd
-from pathlib import Path
-
 def filterFoods(user, path):
     """
     Filter foods based on user allergies and preferences
