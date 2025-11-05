@@ -39,47 +39,5 @@ class UserData(BaseModel):
 
 @router.post("/calculate")
 async def calculate_nutrition(user: UserData):
-    """
-    Calculate target calories, macros, and filter foods based on user profile
-    
-    Returns:
-        - calories: Recommended daily calories
-        - protein_g: Grams of protein
-        - fat_g: Grams of fat
-        - carb_g: Grams of carbohydrates
-        - available_foods_count: Number of foods after filtering
-        - foods_preview: Sample of available foods
-    """
-    try:
-        # Convert Pydantic model to dict for ML functions
-        user_dict = user.dict()
-        
-        # Get target calories and macros from ML model
-        nutrition_targets = getUserTarget(user_dict)
-        
-        # Filter foods based on allergies/preferences
-        filtered_foods = filterFoods(user_dict, food_data_path="data/foods/staples.csv")
-        
-        return {
-            "nutrition_targets": nutrition_targets,
-            "available_foods_count": len(filtered_foods),
-            "foods_preview": filtered_foods.head(10).to_dict('records')
-        }
-    
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid user data: {str(e)}")
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=500, detail=f"Data file not found: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating nutrition: {str(e)}")
-
-@router.get("/test")
-async def test_nutrition():
-    """Test endpoint to verify nutrition service is working"""
-    return {
-        "status": "Nutrition service is running",
-        "endpoints": {
-            "POST /api/nutrition/calculate": "Calculate nutrition plan for user"
-        }
-    }
+    pass
 

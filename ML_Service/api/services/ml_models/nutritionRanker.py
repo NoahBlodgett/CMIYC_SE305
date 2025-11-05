@@ -2,15 +2,6 @@ from joblib import load
 import pandas as pd
 from pathlib import Path
 
-# Activity level mapping (category → Harris-Benedict multiplier)
-ACTIVITY_MULTIPLIERS = {
-    0: 1.2,    # Sedentary (little/no exercise)
-    1: 1.375,  # Lightly active (1-3 days/week)
-    2: 1.55,   # Moderately active (3-5 days/week)
-    3: 1.725,  # Very active (6-7 days/week)
-    4: 1.9     # Extremely active (athlete)
-}
-
 def getUserTarget(user):
     # Required fields for the model
     required_fields = ['Height_in', 'Weight_lb', 'Age', 'Gender', 'Activity_Level', 'Goal']
@@ -22,21 +13,13 @@ def getUserTarget(user):
     model_path = Path(__file__).parents[3] / "artifacts" / "models" / "model.joblib"
     model = load(model_path)
 
-    # ✅ FIX: Convert Activity_Level category to multiplier
-    activity_level = user["Activity_Level"]
-    if activity_level in ACTIVITY_MULTIPLIERS:
-        activity_multiplier = ACTIVITY_MULTIPLIERS[activity_level]
-    else:
-        # If already a multiplier, use as-is
-        activity_multiplier = activity_level
-
     # Predict target calories with corrected activity level
     user_data = {
         'Height_in': user['Height_in'],
         'Weight_lb': user['Weight_lb'],
         'Age': user['Age'],
         'Gender': user['Gender'],
-        'Activity_Level': activity_multiplier,  # Use multiplier, not category
+        'Activity_Level': user['Activity_Level'],  # Use multiplier, not category
         'Goal': user['Goal']
     }
     

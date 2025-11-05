@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-def filterFoods(user, food_data_path="../data/foods/staples.csv"):
+def filterFoods(user, path):
     """
     Filter foods based on user allergies and preferences
     
@@ -21,7 +21,7 @@ def filterFoods(user, food_data_path="../data/foods/staples.csv"):
         dislikes = getattr(user, 'preferences', [])
     
     # Load food database
-    foods_df = pd.read_csv(food_data_path)
+    foods_df = pd.read_csv(path)
     
     # Combine all terms to exclude
     exclude_terms = allergies + dislikes
@@ -38,3 +38,15 @@ def filterFoods(user, food_data_path="../data/foods/staples.csv"):
     filtered_df = foods_df[~foods_df['food_name'].str.contains(pattern, case=False, na=False)]
     
     return filtered_df.reset_index(drop=True)
+
+def mealTargets(daily_targets: dict, splits: dict[str, float]) -> dict[str, dict[str, float]]:
+    out: dict[str, dict[str, float]] = {}
+
+    # loop through each split percentage and store the total cals then go through the macros
+    for meal, i in splits.items():
+        out[meal] = {'calories': i * daily_targets['calories']}
+
+        for j in ('protein_g','carb_g','fat_g'):
+            out[meal][j] = i * daily_targets[j]
+
+    return out
