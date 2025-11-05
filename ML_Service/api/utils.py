@@ -7,7 +7,7 @@ def filterFoods(user, path):
     
     Args:
         user: Dict with 'allergies' and 'preferences' keys
-        food_data_path: Path to CSV with food data
+        path: Path to CSV with food data
         
     Returns:
         DataFrame with filtered foods
