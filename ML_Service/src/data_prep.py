@@ -1,6 +1,5 @@
 import pandas as pd
 import os
-import re
 from sklearn.model_selection import train_test_split
 from config import DATA_DIR, RAW_FILE, FEATURES, TARGET, STRATIFY_COL, TEST_SIZE, RANDOM_STATE
 
