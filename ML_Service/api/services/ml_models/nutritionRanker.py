@@ -38,6 +38,8 @@ def getUserTarget(user):
     else:
         # If already a multiplier (1.2-1.9 range), use as-is
         activity_multiplier = float(activity_level)
+        if not (1.2 <= activity_multiplier <= 1.9):
+            raise ValueError(f"Invalid activity multiplier: {activity_multiplier}. Must be between 1.2 and 1.9.")
 
     # Create user data with mapped activity level
     user_data = pd.DataFrame([{
