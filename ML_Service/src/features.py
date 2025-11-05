@@ -7,7 +7,7 @@ def build_preprocessor():
     
     preprocessor = ColumnTransformer([
         ("num", StandardScaler(), numeric), # scales the numeric features/ imports so that larger features don't outweigh
-        ("passthrough", "passthrough", passthrough) # passes by features
+        ("passthrough", "passthrough", passthrough) # passes through features unchanged
     ])
 
     return preprocessor
