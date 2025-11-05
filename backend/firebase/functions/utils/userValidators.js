@@ -63,7 +63,7 @@ function isValidGender(gender)
 // 1.725 = very active, 1.9 = extreme activity
 function isValidActivityLevel(activity_level)
 {
-    const validLevels = [1.2, 1,375, 1.55, 1.725, 1.9];
+    const validLevels = [1.2, 1.375, 1.55, 1.725, 1.9];
 
     return(validLevels.includes(activity_level));
 }
