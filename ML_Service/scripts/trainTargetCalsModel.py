@@ -43,7 +43,7 @@ test_df  = pd.read_csv(TEST_CSV)
 print(f"Training samples: {len(train_df)}")
 print(f"Test samples: {len(test_df)}")
 
-# ✅ ADD: Check target values before training
+# Check target values before training
 print(f"\nTarget statistics:")
 print(f"  Mean: {train_df[TARGET].mean():.1f}")
 print(f"  Min: {train_df[TARGET].min():.1f}")
@@ -55,7 +55,7 @@ Y_train = train_df[TARGET]
 X_test  = test_df.drop(columns=[TARGET])
 y_test  = test_df[TARGET]
 
-# ✅ ADD: Check feature values
+# Check feature values
 print(f"\nFeature sample (first row):")
 print(X_train.iloc[0])
 
@@ -78,13 +78,13 @@ r2  = r2_score(y_test, y_pred)
 print(f"\nRidge MAE: {mae:.1f}") # how many calories the model is off by
 print(f"Ridge R2 : {r2:.3f}") # % to how well the model fits
 
-# ✅ ADD: Check prediction range
+# Check prediction range
 print(f"\nPrediction range:")
 print(f"  Min predicted: {y_pred.min():.1f}")
 print(f"  Max predicted: {y_pred.max():.1f}")
 print(f"  Mean predicted: {y_pred.mean():.1f}")
 
-# ✅ ADD: Test with your example user
+# Test with your example user
 print("\n" + "="*50)
 print("Testing with example user:")
 test_user = pd.DataFrame([{
@@ -99,9 +99,9 @@ example_pred = model.predict(test_user)[0]
 print(f"70in, 180lb, 25yo, male, moderate activity, maintain")
 print(f"Predicted: {example_pred:.0f} calories")
 if example_pred < 1500 or example_pred > 3000:
-    print("⚠️  WARNING: Prediction seems unreasonable!")
+    print("WARNING: Prediction seems unreasonable!")
 else:
-    print("✅ Prediction looks reasonable!")
+    print("Prediction looks reasonable!")
 
 # save artifacts
 os.makedirs(MODEL_DIR, exist_ok=True)

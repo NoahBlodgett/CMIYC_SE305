@@ -37,7 +37,33 @@ class UserData(BaseModel):
             }
         }
 
-@router.post("/calculate")
-async def calculate_nutrition(user: UserData):
-    pass
+@router.post("/generate")
+async def generate(user: UserData):
+    try:
+        # Convert Pydantic model to dict
+        user_dict = user.dict()
+        
+        # Get nutrition targets from ML model
+        nutrition_targets = getUserTarget(user_dict)
+        
+        # Filter foods based on allergies/preferences
+        filtered_foods = filterFoods(user_dict, path="data/foods/staples.csv")
+        
+        return {
+            "nutrition_targets": nutrition_targets,
+            "available_foods_count": len(filtered_foods),
+            "foods_preview": filtered_foods.head(10).to_dict('records')
+        }
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid user data: {str(e)}")
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Data file not found: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating nutrition: {str(e)}")
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "Nutrition service is running"}
 
