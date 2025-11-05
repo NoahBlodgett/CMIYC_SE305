@@ -6,7 +6,7 @@ def build_preprocessor():
     passthrough = ['Gender','Goal']
     
     preprocessor = ColumnTransformer([
-        ("num", StandardScaler(), numeric), # scales the numeric features/ imports so that larger features dont out weigh
+        ("num", StandardScaler(), numeric), # scales the numeric features/ imports so that larger features don't outweigh
         ("passthrough", "passthrough", passthrough) # passes by features
     ])
 
