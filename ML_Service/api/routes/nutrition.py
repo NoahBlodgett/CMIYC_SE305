@@ -10,7 +10,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 from api.services.ml_models.nutritionRanker import getUserTarget
 from api.utils import filterFoods
 
-router = APIRouter(prefix="/api/nutrition", tags=["nutrition"])
+router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
 class UserData(BaseModel):
     """User data required for nutrition calculations"""
