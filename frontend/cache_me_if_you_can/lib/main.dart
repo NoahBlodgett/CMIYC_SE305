@@ -13,7 +13,6 @@ import 'widgets/homePageWidgets/progress_waves.dart';
 import 'pages/login_page.dart';
 import 'pages/create_user_page.dart';
 import 'firebase_options.dart';
-import 'firebase_dev_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,11 +23,11 @@ Future<void> main() async {
   try {
     // Resolve Firebase options; if the generated options are missing, use a
     // dev fallback suitable for emulators.
-    FirebaseOptions options;
+    FirebaseOptions? options;
     try {
       options = DefaultFirebaseOptions.currentPlatform;
     } catch (_) {
-      options = DevFirebaseOptions.currentPlatform;
+      options = null;
     }
 
     await Firebase.initializeApp(options: options);
@@ -142,16 +141,15 @@ class ErrorApp extends StatelessWidget {
                 const Text(
                   '2) For Windows, ensure desktop Firebase setup is completed or use the FlutterFire CLI to generate configuration.',
                 ),
-                const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () async {
                     // Try a simple retry (useful after adding config files)
                     try {
-                      FirebaseOptions options;
+                      FirebaseOptions? options;
                       try {
                         options = DefaultFirebaseOptions.currentPlatform;
                       } catch (_) {
-                        options = DevFirebaseOptions.currentPlatform;
+                        options = null;
                       }
                       await Firebase.initializeApp(options: options);
                       // Restart the app by calling runApp again

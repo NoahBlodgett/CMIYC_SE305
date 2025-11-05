@@ -465,9 +465,7 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 
   Future<void> _reportIssue() async {
-    final uri = Uri.parse(
-      'mailto:Noah.Blodgett@jacks.sdstate.edu', // if you see this in pr.... no you didn't
-    );
+    final uri = Uri.parse('mailto:support@example.com');
     await _openUrl(uri);
   }
 

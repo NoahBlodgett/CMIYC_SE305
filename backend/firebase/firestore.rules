@@ -23,7 +23,7 @@ service cloud.firestore {
       return !hasKey('age') || (request.resource.data.age is int && request.resource.data.age > 0 && request.resource.data.age < 130);
     }
     function validGender() {
-      return !hasKey('gender') || (request.resource.data.gender in ['male','female','other']);
+      return !hasKey('gender') || (request.resource.data.gender in ['male','female']);
     }
     function validEmail(uid) {
       return !hasKey('email') || (request.resource.data.email is string && request.resource.data.email == request.auth.token.email);
