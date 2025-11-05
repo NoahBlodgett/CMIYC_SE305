@@ -44,25 +44,6 @@ service cloud.firestore {
       return !hasKey('onboarding_completed') || (request.resource.data.onboarding_completed is bool);
     }
 
-    match /users/{uid} {
-      // Create: allow minimal profile (name/email) during onboarding start
-      allow create: if isOwner(uid)
-        && hasOnlyKeys(['name','email','onboarding_completed','allergies'])
-        && validName() && validEmail(uid) && validAllergies() && validOnboardingFlag();
-
-      // Read own document
-      allow read: if isOwner(uid);
-
-      // Update: allow adding remaining fields with validation; email must not change
-      allow update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['name','email','age','gender','height','weight','activity_level','allergies','onboarding_completed'])
-        && validName() && validEmail(uid) && validAge() && validGender() && validHeight() && validWeight() && validActivity() && validAllergies() && validOnboardingFlag()
-        && request.resource.data.email == resource.data.email;
-
-      // Delete own document
-      allow delete: if isOwner(uid);
-    }
-
     // Deny everything else by default
     match /{document=**} {
       allow read, write: if false;
