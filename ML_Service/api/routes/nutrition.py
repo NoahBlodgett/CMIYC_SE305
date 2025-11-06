@@ -3,12 +3,11 @@ from pydantic import BaseModel
 from typing import List
 import sys
 from pathlib import Path
+from api.services.ml_models.nutritionRanker import getUserTarget
+from api.utils import filterFoods
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parents[2]))
-
-from api.services.ml_models.nutritionRanker import getUserTarget
-from api.utils import filterFoods
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
