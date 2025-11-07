@@ -12,6 +12,12 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  assert(() {
+    // Simple timestamp markers to diagnose startup latency in debug builds.
+    final start = DateTime.now();
+    debugPrint('[StartupTrace] main() started at $start');
+    return true;
+  }());
 
   // Try to initialize Firebase. If platform hasn't been configured yet
   // (for example Windows desktop before you run `flutterfire configure`),
@@ -60,25 +66,41 @@ Future<void> main() async {
     }
 
     // For development, sign in anonymously so currentUser is available.
+    // Default to NOT using emulators unless explicitly enabled.
+    // On physical devices, emulator hosts like 10.0.2.2/localhost are unreachable
+    // and can cause long startup delays waiting on network timeouts.
     const useEmulators = bool.fromEnvironment(
       'USE_EMULATORS',
-      defaultValue: true,
+      defaultValue: false,
     );
     if (kDebugMode && useEmulators) {
       try {
         // Point to local emulators in debug/dev to avoid hitting prod
         await _useFirebaseEmulators();
-        await FirebaseAuth.instance.signInAnonymously();
+        // Don't block app startup on debug sign-in; fire-and-forget to avoid delays
+        // if the emulator host isn't reachable from a physical device.
+        // ignore: discarded_futures
+        FirebaseAuth.instance.signInAnonymously();
       } catch (_) {
         // ignore errors in debug sign-in
       }
     }
 
     runApp(const MyApp());
+    assert(() {
+      debugPrint('[StartupTrace] runApp(MyApp) invoked at ${DateTime.now()}');
+      return true;
+    }());
   } catch (e) {
     // In development, continue without Firebase and let widgets use mock fallbacks.
     if (kDebugMode) {
       runApp(const MyApp());
+      assert(() {
+        debugPrint(
+          '[StartupTrace] runApp(MyApp) (Firebase init failed) at ${DateTime.now()}',
+        );
+        return true;
+      }());
     } else {
       runApp(ErrorApp(e.toString()));
     }
@@ -179,6 +201,14 @@ class MyApp extends StatelessWidget {
       future: router.resolveInitialRoute(),
       builder: (context, snap) {
         final initial = snap.data;
+        assert(() {
+          if (snap.connectionState == ConnectionState.done) {
+            debugPrint(
+              '[StartupTrace] Initial route resolved to "$initial" at ${DateTime.now()}',
+            );
+          }
+          return true;
+        }());
         return MaterialApp(
           title: 'Momentum',
           theme: AppTheme.lightTheme,
