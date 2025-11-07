@@ -69,7 +69,9 @@ class _LoginPageState extends State<LoginPage> {
         idToken: googleAuth.idToken,
         accessToken: googleAuth.accessToken,
       );
-  await FirebaseAuth.instance.signInWithCredential(credential); // TODO: wrap in repository method later
+      await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      ); // TODO: wrap in repository method later
       // Let AuthGate route to HomePage automatically.
       if (!mounted) return;
     } on FirebaseAuthException catch (e) {
@@ -111,7 +113,9 @@ class _LoginPageState extends State<LoginPage> {
         idToken: appleCredential.identityToken,
         accessToken: appleCredential.authorizationCode,
       );
-  await FirebaseAuth.instance.signInWithCredential(oauth); // TODO: wrap in repository method later
+      await FirebaseAuth.instance.signInWithCredential(
+        oauth,
+      ); // TODO: wrap in repository method later
       // Let AuthGate route to HomePage automatically.
       if (!mounted) return;
     } on FirebaseAuthException catch (e) {

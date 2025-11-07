@@ -64,10 +64,13 @@ class _CreateUserPageState extends State<CreateUserPage> {
       );
 
       // Create initial user document
-      await FirebaseFirestore.instance.collection('users').doc(created.uid).set({
-        'email': created.email ?? _emailCtrl.text.trim(),
-        'onboarding_completed': false,
-      }, SetOptions(merge: true));
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(created.uid)
+          .set({
+            'email': created.email ?? _emailCtrl.text.trim(),
+            'onboarding_completed': false,
+          }, SetOptions(merge: true));
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, Routes.onboarding);
