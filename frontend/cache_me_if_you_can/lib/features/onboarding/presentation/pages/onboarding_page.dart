@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../main.dart';
-import '../utils/validators.dart';
-import '../utils/units.dart';
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
+import '../../../../utils/validators.dart';
+import '../../../../utils/units.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -13,7 +13,6 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-// Activity options as constants for readability and reuse
 class _ActivityOption {
   const _ActivityOption(this.value, this.label);
   final double value;
@@ -29,24 +28,20 @@ const List<_ActivityOption> _activityOptions = [
 ];
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  // Form & controllers
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
   final _allergiesCtrl = TextEditingController();
 
-  // Height selection state
   int _feet = 5;
-  int _inches = 6; // 0–11
-  bool _useMetric = false; // cm vs ft/in
-  int _cm = 170; // default cm when metric
+  int _inches = 6;
+  bool _useMetric = false;
+  int _cm = 170;
 
-  // Profile selections
   String _gender = 'male';
   double _activityLevel = 1.2;
 
-  // UI state
   bool _saving = false;
   String? _errorText;
 
@@ -83,21 +78,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
         'gender': _gender,
         'height': height,
         'weight': weight,
-        if (allergies.isNotEmpty) 'allergies': allergies, // optional
+        if (allergies.isNotEmpty) 'allergies': allergies,
         'activity_level': _activityLevel,
         'onboarding_completed': true,
       }, SetOptions(merge: true));
 
-      // Keep FirebaseAuth displayName in sync for greetings
       if (name.isNotEmpty) {
         await user.updateDisplayName(name);
         await user.reload();
       }
 
       if (!mounted) return;
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+      Navigator.pushReplacementNamed(context, Routes.home);
     } catch (e) {
       setState(() => _errorText = e.toString());
     } finally {
@@ -116,14 +108,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Username
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(labelText: 'Username'),
                 validator: requiredValidator,
               ),
               const SizedBox(height: 12),
-              // Age
               TextFormField(
                 controller: _ageCtrl,
                 keyboardType: TextInputType.number,
@@ -141,7 +131,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onChanged: (v) => setState(() => _gender = v ?? 'male'),
               ),
               const SizedBox(height: 12),
-              // Units toggle
               Row(
                 children: [
                   const Text('Units:'),
@@ -167,7 +156,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              // Height pickers
               if (!_useMetric)
                 Row(
                   children: [
@@ -243,7 +231,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ],
                 ),
               const SizedBox(height: 12),
-              // Weight
               TextFormField(
                 controller: _weightCtrl,
                 keyboardType: const TextInputType.numberWithOptions(
@@ -262,7 +249,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Activity level
               DropdownButtonFormField<double>(
                 initialValue: _activityLevel,
                 decoration: const InputDecoration(labelText: 'Activity level'),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../mock/mock_data.dart';
-import '../utils/program_state.dart';
+import '../../../../mock/mock_data.dart';
+import '../../../../utils/program_state.dart';
 
 class RecentProgramsPage extends StatefulWidget {
   const RecentProgramsPage({super.key});

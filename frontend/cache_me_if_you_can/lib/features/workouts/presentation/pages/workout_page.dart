@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import '../mock/mock_data.dart';
-import '../utils/program_state.dart';
-import 'recent_programs_page.dart';
-import 'ai_program_page.dart';
-import 'build_program_page.dart';
+import '../../../../mock/mock_data.dart';
+import '../../../../utils/program_state.dart';
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 
 class WorkoutPage extends StatefulWidget {
   const WorkoutPage({super.key});
@@ -13,10 +11,8 @@ class WorkoutPage extends StatefulWidget {
 }
 
 class _WorkoutPageState extends State<WorkoutPage> {
-  // Current selected program name (loaded from mock/API)
   String? _currentProgramName;
   List<String> _recentPrograms = const [];
-  // Dropdown state
   bool _recentOpen = false;
   bool _newOpen = false;
 
@@ -32,9 +28,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       final name = await ProgramState.loadActiveProgramName();
       if (!mounted) return;
       setState(() => _currentProgramName = name);
-    } catch (_) {
-      // keep null -> UI shows fallback
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadRecentPrograms() async {
@@ -42,9 +36,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       final list = await fetchRecentPrograms(limit: 3);
       if (!mounted) return;
       setState(() => _recentPrograms = list);
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
   }
 
   @override
@@ -52,7 +44,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final color = Theme.of(context).colorScheme;
 
     return Scaffold(
-      // AppBar inherits styling from AppTheme (see styles.dart)
       appBar: AppBar(title: const Text('Workouts'), centerTitle: false),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -67,7 +58,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  // Current Program name
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,10 +67,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight:
-                                    FontWeight.w800, // heavier per request
-                              ),
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -91,7 +78,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
                       ],
                     ),
                   ),
-                  // Recent programs dropdown (top 3 + View all)
                   PopupMenuButton<String>(
                     tooltip: 'Recent programs',
                     onOpened: () => setState(() => _recentOpen = true),
@@ -143,7 +129,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Plus menu for creating programs
                   PopupMenuButton<String>(
                     tooltip: 'New program',
                     onOpened: () => setState(() => _newOpen = true),
@@ -175,7 +160,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 16),
           _SectionHeader(
             icon: Icons.today_outlined,
@@ -195,7 +179,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
               ],
             ),
           ),
-
           const SizedBox(height: 16),
           _SectionHeader(
             icon: Icons.history,
@@ -234,9 +217,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   Future<void> _onViewRecentPrograms() async {
-    final selected = await Navigator.push<String>(
+    final selected = await Navigator.pushNamed<String>(
       context,
-      MaterialPageRoute(builder: (_) => const RecentProgramsPage()),
+      Routes.workoutRecent,
     );
     if (selected != null && mounted) {
       setState(() => _currentProgramName = selected);
@@ -244,9 +227,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   Future<void> _onCreateAiProgram() async {
-    final created = await Navigator.push<String>(
+    final created = await Navigator.pushNamed<String>(
       context,
-      MaterialPageRoute(builder: (_) => const AiProgramPage()),
+      Routes.workoutAi,
     );
     if (created != null && mounted) {
       setState(() => _currentProgramName = created);
@@ -254,19 +237,16 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   Future<void> _onBuildProgram() async {
-    final built = await Navigator.push<String>(
+    final built = await Navigator.pushNamed<String>(
       context,
-      MaterialPageRoute(builder: (_) => const BuildProgramPage()),
+      Routes.workoutBuild,
     );
     if (built != null && mounted) {
       setState(() => _currentProgramName = built);
     }
   }
-
-  // Note: menu opening is now handled by PopupMenuButton for reliability on Android
 }
 
-// Simple, reusable header row for each section
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -304,7 +284,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// Card wrapper to keep a consistent section look
 class _SectionCard extends StatelessWidget {
   final Widget child;
   const _SectionCard({required this.child});
