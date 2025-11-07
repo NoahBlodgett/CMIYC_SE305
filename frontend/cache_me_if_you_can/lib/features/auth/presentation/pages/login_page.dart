@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
+import 'package:cache_me_if_you_can/features/auth/auth_dependencies.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -35,11 +36,10 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
+      await authRepository.signInWithEmail(
+        _emailCtrl.text.trim(),
+        _passwordCtrl.text,
       );
-
       if (!mounted) return;
     } on FirebaseAuthException catch (e) {
       setState(() => _error = e.message ?? 'Login failed');
@@ -69,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
         idToken: googleAuth.idToken,
         accessToken: googleAuth.accessToken,
       );
-      await FirebaseAuth.instance.signInWithCredential(credential);
+  await FirebaseAuth.instance.signInWithCredential(credential); // TODO: wrap in repository method later
       // Let AuthGate route to HomePage automatically.
       if (!mounted) return;
     } on FirebaseAuthException catch (e) {
@@ -111,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
         idToken: appleCredential.identityToken,
         accessToken: appleCredential.authorizationCode,
       );
-      await FirebaseAuth.instance.signInWithCredential(oauth);
+  await FirebaseAuth.instance.signInWithCredential(oauth); // TODO: wrap in repository method later
       // Let AuthGate route to HomePage automatically.
       if (!mounted) return;
     } on FirebaseAuthException catch (e) {
