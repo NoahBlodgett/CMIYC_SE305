@@ -5,9 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import '../services/auth_api.dart';
-import 'onboarding_page.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
+
+// NOTE: AuthApi reference removed (not found in workspace). Replace with direct Firebase calls.
 
 class CreateUserPage extends StatefulWidget {
   const CreateUserPage({super.key});
@@ -56,46 +57,25 @@ class _CreateUserPageState extends State<CreateUserPage> {
     });
 
     try {
-      // Ensure Firebase initialized
       await Firebase.initializeApp();
-      // If using emulators, they'll be configured in main.dart
 
-      final api = AuthApi();
-      final res = await api.createUser(
-        CreateUserRequest(
-          name: '',
-          age: 0,
-          gender: 'other',
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-          height: 0,
-          weight: 0,
-          allergies: '',
-          activityLevel: 0,
-        ),
+      // Create user with Firebase Auth directly
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
       );
 
-      if (!mounted) return;
-      // Optionally sign-in the user on success
-      try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-        );
-        await FirebaseAuth.instance.currentUser?.reload();
-      } catch (_) {
-        // If sign-in fails (e.g., emulator not running), ignore for now
+      // Create initial user document
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'email': user.email ?? _emailCtrl.text.trim(),
+          'onboarding_completed': false,
+        }, SetOptions(merge: true));
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message)));
-      // After account creation, go to onboarding to collect remaining details.
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OnboardingPage()),
-      );
+      Navigator.pushReplacementNamed(context, Routes.onboarding);
     } catch (e) {
       setState(() {
         _errorText = e.toString();
@@ -196,15 +176,12 @@ class _CreateUserPageState extends State<CreateUserPage> {
       final cred = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = cred.user;
       if (user != null) {
-        // Ensure minimal user doc exists
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'email': user.email ?? _emailCtrl.text.trim(),
           'onboarding_completed': false,
         }, SetOptions(merge: true));
         if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const OnboardingPage()),
-        );
+        Navigator.pushReplacementNamed(context, Routes.onboarding);
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _errorText = e.message ?? 'Google sign-in failed');
@@ -253,9 +230,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
           'onboarding_completed': false,
         }, SetOptions(merge: true));
         if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const OnboardingPage()),
-        );
+        Navigator.pushReplacementNamed(context, Routes.onboarding);
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _errorText = e.message ?? 'Apple sign-in failed');

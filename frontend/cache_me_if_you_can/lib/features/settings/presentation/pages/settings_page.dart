@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:settings_ui/settings_ui.dart';
-import '../widgets/settingsWidgets/user_profile.dart';
-import 'security_page.dart';
+import 'package:cache_me_if_you_can/features/settings/presentation/widgets/user_profile.dart';
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -58,12 +58,8 @@ class SettingsPage extends StatelessWidget {
                 SettingsTile.navigation(
                   leading: const Icon(Icons.lock_outline),
                   title: const Text('Password & Security'),
-                  onPressed: (context) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SecurityPage()),
-                    );
-                  },
+                  onPressed: (context) =>
+                      Navigator.pushNamed(context, Routes.security),
                 ),
               ],
             ),
@@ -164,7 +160,6 @@ class SettingsPage extends StatelessWidget {
                 ),
               ],
             ),
-            // Logout section at the bottom
             SettingsSection(
               tiles: [
                 SettingsTile.navigation(
@@ -174,12 +169,10 @@ class SettingsPage extends StatelessWidget {
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
                   onPressed: (context) async {
-                    // Capture navigator before async gap to satisfy lints
                     final nav = Navigator.of(context);
                     try {
                       await FirebaseAuth.instance.signOut();
                     } finally {
-                      // Pop to root; _AuthGate will route to LoginPage
                       nav.popUntil((route) => route.isFirst);
                     }
                   },

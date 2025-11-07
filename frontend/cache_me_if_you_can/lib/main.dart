@@ -6,12 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
-import 'pages/settings_page.dart';
 import 'styles/styles.dart';
-import 'pages/workout_page.dart';
-import 'widgets/homePageWidgets/progress_waves.dart';
-import 'pages/login_page.dart';
-import 'pages/create_user_page.dart';
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -178,175 +174,20 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Momentum',
-      // Apply centralized theme from styles.dart
-      theme: AppTheme.lightTheme,
-      home: const _AuthGate(),
-      routes: {
-        '/login': (_) => const LoginPage(),
-        '/signup': (_) => const CreateUserPage(),
-      },
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-class _AuthGate extends StatelessWidget {
-  const _AuthGate();
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    final router = AppRouter();
+    return FutureBuilder<String>(
+      future: router.resolveInitialRoute(),
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final user = snap.data;
-        if (user == null) {
-          // First screen: Login when not signed in
-          return const LoginPage();
-        }
-        return const HomePage();
+        final initial = snap.data;
+        return MaterialApp(
+          title: 'Momentum',
+          theme: AppTheme.lightTheme,
+          debugShowCheckedModeBanner: false,
+          initialRoute: initial ?? Routes.root,
+          onGenerateRoute: router.onGenerateRoute,
+        );
       },
     );
   }
 }
-
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  @override
-  Widget build(BuildContext context) {
-    // Compute responsive size for the circular progress widgets to avoid overflow.
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Body has 16px horizontal padding on both sides, Row has a 16px spacer between items.
-    final availableRow =
-        (screenWidth - 32.0) -
-        1.0; // subtract 1px as safety to avoid rounding overflow
-    final perItem = (availableRow - 16.0) / 2.0;
-    // Clamp each circle between 120 and 160; they will shrink on narrow screens.
-    final double circleSize = perItem.clamp(120.0, 160.0);
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _greetingName(),
-              // Use themed headline style from AppTheme
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Ready to crush your goals today?",
-              // Subtle secondary text color from AppTheme
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const WorkoutPage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
-        ],
-        // AppBar theming (colors, elevation, bottom border) comes from AppTheme
-        toolbarHeight: 60,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                alignment: WrapAlignment.center,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ProgressWidget(
-                        progress: 0.72,
-                        goalLabel: '', // hide center text for clarity
-                        value: '',
-                        color: Colors.greenAccent,
-                        size: circleSize,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '5,200 steps',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      Text(
-                        'Goal: 7,200',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // If you want live calories from mock/DB, swap to CaloriesProgressLoader
-                      ProgressWidget(
-                        progress: 0.18,
-                        goalLabel: '',
-                        value: '',
-                        color: Colors.orangeAccent,
-                        size: circleSize,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '320 / 2500 kcal',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      Text(
-                        "Today's calories",
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-extension on _HomePageState {
-  String _greetingName() {
-    final user = FirebaseAuth.instance.currentUser;
-    final base = user?.displayName?.trim();
-    final name = (base != null && base.isNotEmpty)
-        ? base
-        : (user?.email != null ? user!.email!.split('@').first : 'Friend');
-    return 'Hello, $name';
-  }
-}
+// HomePage lives in features/home; routing handled by AppRouter.

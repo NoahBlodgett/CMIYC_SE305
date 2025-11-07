@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'create_user_page.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -51,9 +51,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _goCreate() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CreateUserPage()));
+    await Navigator.pushNamed(context, Routes.signup);
   }
 
   Future<void> _signInWithGoogle() async {
