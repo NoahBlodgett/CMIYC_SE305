@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:io' show Platform;
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
+import 'package:cache_me_if_you_can/features/auth/auth_dependencies.dart';
 
 // NOTE: AuthApi reference removed (not found in workspace). Replace with direct Firebase calls.
 
@@ -57,22 +57,17 @@ class _CreateUserPageState extends State<CreateUserPage> {
     });
 
     try {
-      await Firebase.initializeApp();
-
-      // Create user with Firebase Auth directly
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
+      // Use repository for email/password sign-up
+      final created = await authRepository.signUpWithEmail(
+        _emailCtrl.text.trim(),
+        _passwordCtrl.text,
       );
 
       // Create initial user document
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': user.email ?? _emailCtrl.text.trim(),
-          'onboarding_completed': false,
-        }, SetOptions(merge: true));
-      }
+      await FirebaseFirestore.instance.collection('users').doc(created.uid).set({
+        'email': created.email ?? _emailCtrl.text.trim(),
+        'onboarding_completed': false,
+      }, SetOptions(merge: true));
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, Routes.onboarding);
