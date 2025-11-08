@@ -12,7 +12,7 @@ class UserGamification
     getGoal() { return this.user_goal; }
 
     setUserID(userID) { this.userID = userID; }
-    setActivityLog(workoutLog) { this.workoutLog = this.workoutLog; }
+    setActivityLog(workoutLog) { this.workoutLog = workoutLog; }
     setGoal(user_goal) { this.user_goal = user_goal; }
 
     toJSON()
