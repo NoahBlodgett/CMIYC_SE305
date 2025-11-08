@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:cache_me_if_you_can/mock/mock_data.dart' as mock;
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// NOTE: Previously used mock data. Now wired to Firestore nutrition entries and user profile.
 
 class ProgressWidget extends StatefulWidget {
   final double progress;
@@ -67,59 +69,103 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
   int? _targetCalories;
   Object? _error;
   bool _loading = true;
+  StreamSubscription? _entriesSub;
+  StreamSubscription? _userSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _subscribe();
   }
 
-  Future<void> _load() async {
-    try {
-      final logs = await mock.fetchNutritionLogs(limit: 20);
-      Map<String, dynamic>? latest;
-      DateTime latestDate = DateTime.fromMillisecondsSinceEpoch(0);
-      for (final m in logs) {
-        final dStr = m['date']?.toString();
-        if (dStr == null) continue;
-        final parts = dStr.split('-');
-        if (parts.length == 3) {
-          final year = int.tryParse(parts[0]) ?? 0;
-          final month = int.tryParse(parts[1]) ?? 1;
-          final day = int.tryParse(parts[2]) ?? 1;
-          final dt = DateTime(year, month, day);
-          if (dt.isAfter(latestDate)) {
-            latestDate = dt;
-            latest = Map<String, dynamic>.from(m);
-          }
-        }
-      }
+  @override
+  void didUpdateWidget(covariant CaloriesProgressLoader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId || oldWidget.date != widget.date) {
+      _entriesSub?.cancel();
+      _userSub?.cancel();
+      _loading = true;
+      _subscribe();
+    }
+  }
 
-      latest ??= logs.isNotEmpty ? Map<String, dynamic>.from(logs.first) : null;
+  @override
+  void dispose() {
+    _entriesSub?.cancel();
+    _userSub?.cancel();
+    super.dispose();
+  }
 
-      if (!mounted) return;
-      if (latest == null) {
-        setState(() {
-          _loading = false;
-          _error = StateError('No nutrition logs available');
-        });
-        return;
-      }
+  String _fmtDay(DateTime dt) =>
+      '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
-      final total = (latest['totalCalories'] is num)
-          ? (latest['totalCalories'] as num).toInt()
-          : int.tryParse(latest['totalCalories']?.toString() ?? '');
-      final target = (latest['targetCalories'] is num)
-          ? (latest['targetCalories'] as num).toInt()
-          : int.tryParse(latest['targetCalories']?.toString() ?? '');
-
+  void _subscribe() {
+    final uid = widget.userId;
+    if (uid.isEmpty) {
       setState(() {
-        _totalCalories = total ?? 0;
-        _targetCalories = (target == null || target <= 0) ? 2500 : target;
+        _error = StateError('No user');
         _loading = false;
       });
+      return;
+    }
+    final dayStr = _fmtDay(widget.date ?? DateTime.now());
+    try {
+      // Nutrition entries stream
+      _entriesSub = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('nutrition_entries')
+          .where('day', isEqualTo: dayStr)
+          .snapshots()
+          .listen(
+            (snap) {
+              int total = 0;
+              for (final d in snap.docs) {
+                final data = d.data();
+                final cal = (data['calories'] as num?)?.toDouble() ?? 0;
+                total += cal.round();
+              }
+              if (!mounted) return;
+              setState(() {
+                _totalCalories = total;
+                _loading = false;
+              });
+            },
+            onError: (e) {
+              if (!mounted) return;
+              setState(() {
+                _error = e;
+                _loading = false;
+              });
+            },
+          );
+
+      // User profile stream for target
+      _userSub = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .listen(
+            (doc) {
+              final data = doc.data() ?? const {};
+              final target = (data['calorie_target'] as num?)?.toInt();
+              if (!mounted) return;
+              setState(() {
+                _targetCalories = (target == null || target <= 0)
+                    ? 2500
+                    : target;
+                _loading = false;
+              });
+            },
+            onError: (e) {
+              if (!mounted) return;
+              setState(() {
+                _error = e;
+                _loading = false;
+              });
+            },
+          );
     } catch (e) {
-      if (!mounted) return;
       setState(() {
         _error = e;
         _loading = false;

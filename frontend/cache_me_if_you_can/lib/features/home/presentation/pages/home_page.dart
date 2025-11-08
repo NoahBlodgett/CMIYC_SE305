@@ -43,6 +43,11 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Navigator.pushNamed(context, Routes.workouts),
           ),
           IconButton(
+            icon: const Icon(Icons.restaurant),
+            onPressed: () => Navigator.pushNamed(context, Routes.nutrition),
+            tooltip: 'Nutrition',
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, Routes.settings),
           ),
@@ -81,21 +86,22 @@ class _HomePageState extends State<HomePage> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ProgressWidget(
-                    progress: 0.18,
-                    goalLabel: '',
-                    value: '',
+                  CaloriesProgressLoader(
+                    userId: FirebaseAuth.instance.currentUser?.uid ?? '',
                     color: Colors.orangeAccent,
                     size: circleSize,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '320 / 2500 kcal',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    "Today's calories",
-                    style: Theme.of(context).textTheme.bodySmall,
+                    bottomBuilder: (ctx, total, target) => Column(
+                      children: [
+                        Text(
+                          '$total / $target kcal',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        Text(
+                          "Today's calories",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
