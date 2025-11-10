@@ -7,18 +7,21 @@ const ActiveGoals = Object.freeze({
 
 class ActivityGoals
 {
-    constructor(UserID, ActiveGoal, FinishDate)
+    constructor(UserID, goalID, ActiveGoal, FinishDate)
     {
         this.UserID = UserID;
+        this.goalID = goalID;
         this.ActiveGoal = ActiveGoal;
         this.Finish_Date = FinishDate;
     };
 
     getUserID() { return this.UserID; }
+    getGoalID() { return this.goalID; }
     getActivities() { return this.ActiveGoal; }
     getFinishDate() { return this.Finish_Date; }
 
     setUserID(userID) { this.UserID = userID; }
+    setGoalID(goalID) { this.goalID = goalID; }
     setActivities(ActiveGoal) { this.ActiveGoal = ActiveGoal; }
     setFinishDate(FinishDate) { this.Finish_Date = FinishDate; }
 
@@ -26,6 +29,7 @@ class ActivityGoals
     {
         return{
             user_id: this.UserID,
+            goal_id: this.goalID,
             activity_goal: this.ActiveGoal,
             finish_date: this.Finish_Date
         };

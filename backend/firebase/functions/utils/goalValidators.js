@@ -29,9 +29,15 @@ function isValidFinishDate(date)
   return time > Date.now();
 }
 
+function isValidGoalID(goalID) 
+{
+  return typeof goalID === 'string' && goalID.trim().length > 0;
+}
+
 module.exports = {
   isValidWeightObjective,
   isValidActiveGoal,
   isValidGoalWeight,
   isValidFinishDate,
+  isValidGoalID,
 };

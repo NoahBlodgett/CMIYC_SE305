@@ -5,6 +5,7 @@ class UserGamification
         this.userID = userID;
         this.workoutLog = workoutLog;
         this.user_goal = user_goal;
+        // Need to add milestones, XP, Levels, and Badges
     }
 
     getUserID() { return this.userID; }

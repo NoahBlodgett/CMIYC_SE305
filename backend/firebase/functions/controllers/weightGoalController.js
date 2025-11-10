@@ -73,16 +73,19 @@ async function createWeightGoal(req, res)
         }
 
         // Create WeightGoal object
-        const newWeightGoal = new WeightGoal(userID, weight_objective, parsedGoalWeight, finish_date);
+        const goalRef = await db.collection('weight_goals').add({});
+        const goalID = goalRef.id;
+        
+        const newWeightGoal = new WeightGoal(userID, goalID, weight_objective, parsedGoalWeight, finish_date);
 
-        // Save to Firestore
-        const goalRef = await db.collection('weight_goals').add(newWeightGoal.toJSON());
+        // Update the document with the complete goal data
+        await goalRef.set(newWeightGoal.toJSON());
 
         // Return success response
         res.status(201).json({
             message: 'Weight goal created successfully',
             goal: newWeightGoal.toJSON(),
-            goalID: goalRef.id
+            goalID: goalID
         });
     }
     catch(e)
