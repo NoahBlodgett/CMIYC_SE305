@@ -64,16 +64,19 @@ async function createActivityGoal(req, res)
         }
 
         // Create ActivityGoals object
-        const newActivityGoal = new ActivityGoals(userID, active_goal, finish_date);
+        const goalRef = await db.collection('activity_goals').add({});
+        const goalID = goalRef.id;
+        
+        const newActivityGoal = new ActivityGoals(userID, goalID, active_goal, finish_date);
 
-        // Save to Firestore
-        const goalRef = await db.collection('activity_goals').add(newActivityGoal.toJSON());
+        // Update the document with the complete goal data
+        await goalRef.set(newActivityGoal.toJSON());
 
         // Return success response
         res.status(201).json({
             message: 'Activity goal created successfully',
             goal: newActivityGoal.toJSON(),
-            goalID: goalRef.id
+            goalID: goalID
         });
     }
     catch(e)
