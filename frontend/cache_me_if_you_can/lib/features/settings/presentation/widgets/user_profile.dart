@@ -1,11 +1,10 @@
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../mock/mock_data.dart';
+import 'package:cache_me_if_you_can/mock/mock_data.dart';
 
 class UserProfile extends StatefulWidget {
   const UserProfile({super.key});
@@ -16,10 +15,7 @@ class UserProfile extends StatefulWidget {
 
 class _UserProfileState extends State<UserProfile> {
   final ImagePicker _picker = ImagePicker();
-
-  // API base for local Node.js server
   final String apiBase = 'http://localhost:3000';
-
   late TextEditingController _nameController;
   String? _photoUrl;
   bool _isLoading = false;
@@ -50,7 +46,6 @@ class _UserProfileState extends State<UserProfile> {
       setState(() => _isLoading = true);
       final file = File(picked.path);
 
-      // Proxy upload to Node server (multipart)
       if (!_mockMode) {
         final uri = Uri.parse('$apiBase/profile/upload-proxy');
         final request = http.MultipartRequest('POST', uri);
@@ -62,7 +57,6 @@ class _UserProfileState extends State<UserProfile> {
             filename: picked.name,
           ),
         );
-
         final streamed = await request.send().timeout(
           const Duration(seconds: 3),
         );
@@ -80,20 +74,16 @@ class _UserProfileState extends State<UserProfile> {
           });
         }
       } else {
-        // Mock behavior: just pretend upload succeeded and set a placeholder image URL
-        const placeholder = 'https://via.placeholder.com/150';
         if (mounted) {
           setState(() {
-            _photoUrl = placeholder;
+            _photoUrl = 'https://via.placeholder.com/150';
             _isLoading = false;
           });
         }
       }
     } catch (e) {
-      // In debug, fall back to mock mode on network failure
       if (kDebugMode && !_mockMode) {
         if (mounted) setState(() => _mockMode = true);
-        // Set placeholder and continue
         if (mounted) {
           setState(() {
             _photoUrl = 'https://via.placeholder.com/150';
@@ -117,7 +107,6 @@ class _UserProfileState extends State<UserProfile> {
       if (newName.isEmpty) return;
       setState(() => _isLoading = true);
       if (!_mockMode) {
-        // POST to Node API to update name
         final uri = Uri.parse('$apiBase/profile/name');
         final resp = await http
             .post(
@@ -130,10 +119,8 @@ class _UserProfileState extends State<UserProfile> {
           throw Exception('Failed to save name ${resp.body}');
         }
       } else {
-        // Mock: update local mock profile
         await saveUserProfile({'name': newName});
       }
-
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
@@ -141,7 +128,6 @@ class _UserProfileState extends State<UserProfile> {
         ).showSnackBar(const SnackBar(content: Text('Profile updated')));
       }
     } catch (e) {
-      // In debug, fall back to mock mode
       if (kDebugMode && !_mockMode) {
         if (mounted) setState(() => _mockMode = true);
         await saveUserProfile({'name': _nameController.text.trim()});
@@ -175,7 +161,6 @@ class _UserProfileState extends State<UserProfile> {
         });
       }
     } catch (e) {
-      // In debug, auto-switch to mock mode
       if (kDebugMode) {
         final mock = await fetchUserProfile();
         if (mounted) {
@@ -207,7 +192,6 @@ class _UserProfileState extends State<UserProfile> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    // Use themed secondary color with soft alpha for background
                     color: Theme.of(
                       context,
                     ).colorScheme.secondary.withValues(alpha: 0.15),
