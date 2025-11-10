@@ -2,19 +2,17 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cache_me_if_you_can/mock/mock_data.dart' as mock;
-// Using a custom painter for the wave so we can control animation speed precisely and support low-power/static modes.
 
 class ProgressWidget extends StatefulWidget {
   final double progress;
   final String goalLabel;
   final String value;
   final Color color;
-  final double size; // adaptive size for responsiveness (default 160)
-  final Duration
-  wavePeriod; // controls horizontal wave speed (used when animate && !lowPower)
-  final bool animate; // whether the wave should animate at all
-  final bool lowPower; // if true, animate at a low tick rate to save CPU
-  final double amplitudeFactor; // percentage of height used as wave amplitude
+  final double size;
+  final Duration wavePeriod;
+  final bool animate;
+  final bool lowPower;
+  final double amplitudeFactor;
 
   const ProgressWidget({
     super.key,
@@ -33,21 +31,16 @@ class ProgressWidget extends StatefulWidget {
   State<ProgressWidget> createState() => _ProgressWidgetState();
 }
 
-/// Convenience loader that fetches daily calories progress (total vs. target)
-/// and renders a ProgressWidget. For now, this reads from mock data; swap the
-/// data source with Firestore later.
 class CaloriesProgressLoader extends StatefulWidget {
   final String userId;
-  final DateTime? date; // defaults to today if null
+  final DateTime? date;
   final Color color;
   final double size;
   final bool animate;
   final bool lowPower;
   final Duration wavePeriod;
   final double amplitudeFactor;
-  // If false, the circle won't render text in the center (value/label).
   final bool showCenterText;
-  // Optional builder to render info below the circle using loaded data.
   final Widget Function(BuildContext context, int total, int target)?
   bottomBuilder;
 
@@ -83,10 +76,7 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
 
   Future<void> _load() async {
     try {
-      // For now: pull from mock nutrition logs and compute the latest day's
-      // totalCalories and targetCalories. Replace with Firestore query later.
       final logs = await mock.fetchNutritionLogs(limit: 20);
-      // Select the most recent entry by date (string 'YYYY-MM-DD').
       Map<String, dynamic>? latest;
       DateTime latestDate = DateTime.fromMillisecondsSinceEpoch(0);
       for (final m in logs) {
@@ -105,7 +95,6 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
         }
       }
 
-      // Fallback: if nothing parsed, just take the first entry.
       latest ??= logs.isNotEmpty ? Map<String, dynamic>.from(logs.first) : null;
 
       if (!mounted) return;
@@ -199,8 +188,8 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
 
 class _ProgressWidgetState extends State<ProgressWidget>
     with SingleTickerProviderStateMixin {
-  AnimationController? _waveCtrl; // used for smooth animation (60fps)
-  Timer? _timer; // used for low-power animation (e.g., 5fps)
+  AnimationController? _waveCtrl;
+  Timer? _timer;
   final ValueNotifier<double> _phaseNotifier = ValueNotifier<double>(0);
 
   @override
@@ -228,34 +217,29 @@ class _ProgressWidgetState extends State<ProgressWidget>
   }
 
   void _setupAnimation() {
-    // Stop any existing animation
     _timer?.cancel();
     _waveCtrl?.stop();
     _waveCtrl?.dispose();
     _waveCtrl = null;
 
     if (!widget.animate) {
-      // Static: keep phase at 0
       _phaseNotifier.value = 0;
       return;
     }
 
     if (widget.lowPower) {
-      // Low-power: update phase with a periodic timer (e.g., 5 FPS)
-      const frameInterval = Duration(milliseconds: 200); // 5 fps
+      const frameInterval = Duration(milliseconds: 200);
       final deltaPerTick =
           (2 * math.pi) *
           frameInterval.inMilliseconds /
           widget.wavePeriod.inMilliseconds;
       _phaseNotifier.value = 0;
       _timer = Timer.periodic(frameInterval, (_) {
-        // Advance phase and wrap into [0, 2π)
         double next = _phaseNotifier.value + deltaPerTick;
         if (next >= 2 * math.pi) next -= 2 * math.pi;
         _phaseNotifier.value = next;
       });
     } else {
-      // Smooth animation using controller (vsync)
       _waveCtrl = AnimationController(vsync: this, duration: widget.wavePeriod)
         ..repeat();
     }
@@ -320,7 +304,6 @@ class _ProgressWidgetState extends State<ProgressWidget>
       );
     }
 
-    // Smooth animation path
     return SizedBox(
       width: size,
       height: size,
@@ -333,9 +316,9 @@ class _ProgressWidgetState extends State<ProgressWidget>
 }
 
 class _WavePainter extends CustomPainter {
-  final double progress; // 0..1 fill level
-  final double phase; // radians, horizontal shift of the wave
-  final double amplitudeFactor; // percentage of height used as wave amplitude
+  final double progress;
+  final double phase;
+  final double amplitudeFactor;
   final Color color;
   final Color backgroundColor;
   final Color borderColor;
@@ -356,20 +339,17 @@ class _WavePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
 
-    // Clip drawing to a circle first
     final clipPath = Path()
       ..addOval(Rect.fromCircle(center: center, radius: radius));
     canvas.save();
     canvas.clipPath(clipPath);
 
-    // Background fill
     final bgPaint = Paint()..color = backgroundColor;
     canvas.drawRect(Offset.zero & size, bgPaint);
 
-    // Wave parameters
-    final amplitude = size.height * amplitudeFactor; // configurable height
+    final amplitude = size.height * amplitudeFactor;
     final baseline = size.height * (1.0 - progress);
-    final wavelength = size.width; // one full wave across width
+    final wavelength = size.width;
 
     final path = Path();
     path.moveTo(0, size.height);
@@ -386,7 +366,6 @@ class _WavePainter extends CustomPainter {
     final wavePaint = Paint()..color = color;
     canvas.drawPath(path, wavePaint);
 
-    // Restore then draw border
     canvas.restore();
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -400,8 +379,6 @@ class _WavePainter extends CustomPainter {
     return old.progress != progress ||
         old.phase != phase ||
         old.color != color ||
-        old.backgroundColor != backgroundColor ||
-        old.borderColor != borderColor ||
-        old.borderWidth != borderWidth;
+        old.amplitudeFactor != amplitudeFactor;
   }
 }
