@@ -1,6 +1,7 @@
 """
-Meal Type Separator Script
+Cuisine-Filtered Meal Type Separator Script
 Categorizes cleaned recipes into breakfast, lunch, dinner, and snacks based on tags and keywords.
+Only processes recipes that have cuisine tags, and includes tags column in output files.
 """
 
 import pandas as pd
@@ -16,6 +17,18 @@ def parse_tags(tag_str):
         return ast.literal_eval(tag_str)
     except:
         return []
+
+def has_cuisine_tag(tags_str):
+    """Check if recipe has cuisine-related tags"""
+    tags = parse_tags(tags_str)
+    
+    cuisine_indicators = [
+        'american', 'italian', 'mexican', 'asian', 'indian', 'mediterranean', 'middle', 'latin', 'european', 'african', 'fusion',
+        'chinese', 'japanese', 'korean', 'thai', 'spanish', 'french', 'german', 'greek', 'turkish', 'cajun', 'creole',
+        'central-american', 'south-american', 'north-american', 'native-american', 'south-african'
+    ]
+    
+    return any(any(indicator in tag.lower() for indicator in cuisine_indicators) for tag in tags)
 
 def classify_meal_type(tags_str):
     """
@@ -65,7 +78,7 @@ def classify_meal_type(tags_str):
 
 def separate_meal_types(input_file, output_dir):
     """
-    Main function to separate recipes by meal type
+    Main function to separate recipes by meal type, filtered by cuisine tags
     """
     print("Loading recipe data...")
     
@@ -82,13 +95,18 @@ def separate_meal_types(input_file, output_dir):
     
     print(f"Processing {len(df)} recipes...")
     
-    # Classify meal types (tags only)
-    print("Classifying meal types based on tags...")
-    df['meal_types'] = df['tags'].apply(classify_meal_type)
+    # Filter for recipes with cuisine tags FIRST
+    print("Filtering for recipes with cuisine tags...")
+    df_with_cuisine = df[df['tags'].apply(has_cuisine_tag)].copy()
+    print(f"Found {len(df_with_cuisine)} recipes with cuisine tags ({len(df_with_cuisine)/len(df)*100:.1f}%)")
     
-    # Filter only recipes that have at least one meal type
-    df_with_types = df[df['meal_types'].str.len() > 0].copy()
-    print(f"Found {len(df_with_types)} recipes with meal type tags ({len(df_with_types)/len(df)*100:.1f}%)")
+    # Classify meal types (tags only) on cuisine-filtered data
+    print("Classifying meal types based on tags...")
+    df_with_cuisine['meal_types'] = df_with_cuisine['tags'].apply(classify_meal_type)
+    
+    # Filter only recipes that have at least one meal type AND cuisine tag
+    df_with_types = df_with_cuisine[df_with_cuisine['meal_types'].str.len() > 0].copy()
+    print(f"Found {len(df_with_types)} recipes with both meal type and cuisine tags ({len(df_with_types)/len(df)*100:.1f}% of total)")
     
     # Create output directory
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -98,7 +116,7 @@ def separate_meal_types(input_file, output_dir):
     results = {}
     
     for category in meal_categories:
-        print(f"\\nProcessing {category} recipes...")
+        print(f"\nProcessing {category} recipes...")
         
         # Filter recipes that belong to this category
         category_mask = df_with_types['meal_types'].apply(
@@ -106,22 +124,29 @@ def separate_meal_types(input_file, output_dir):
         )
         category_df = df_with_types[category_mask].copy()
         
-        # Remove the meal_types column for cleaner output
+        # Keep the tags column but remove meal_types column
         category_df = category_df.drop('meal_types', axis=1)
         
-        # Save to CSV
+        # Save to CSV (now includes tags column)
         output_file = f"{output_dir}/{category}_recipes.csv"
         category_df.to_csv(output_file, index=False)
         
         results[category] = len(category_df)
         print(f"Saved {len(category_df)} {category} recipes to {output_file}")
+        print(f"  (includes tags column for cuisine filtering)")
         
-        # Show sample recipes
+        # Show sample recipes with cuisine info
         if len(category_df) > 0:
             print(f"Sample {category} recipes:")
-            sample = category_df[['name', 'calories', 'protein_g']].head(5)
+            sample = category_df[['name', 'calories', 'protein_g', 'tags']].head(3)
             for idx, row in sample.iterrows():
-                print(f"  - {row['name']}: {row['calories']:.0f} cal, {row['protein_g']:.1f}g protein")
+                # Extract cuisine tags for display
+                recipe_tags = parse_tags(row['tags'])
+                cuisine_tags = [tag for tag in recipe_tags if any(indicator in tag.lower() for indicator in [
+                    'american', 'italian', 'mexican', 'asian', 'indian', 'mediterranean', 'middle', 'european', 'african', 'chinese', 'japanese', 'french', 'spanish'
+                ])]
+                cuisine_display = ', '.join(cuisine_tags[:2]) if cuisine_tags else 'other'
+                print(f"  - {row['name']}: {row['calories']:.0f} cal, {row['protein_g']:.1f}g protein [{cuisine_display}]")
     
     # Create a summary file with overlaps
     print("\\nCreating overlap analysis...")
@@ -143,18 +168,21 @@ if __name__ == "__main__":
     input_file = "data/foods/cleaned_recipes.csv"
     output_dir = "data/foods/by_meal_type"
     
-    print("=== MEAL TYPE SEPARATOR ===")
+    print("=== CUISINE-FILTERED MEAL TYPE SEPARATOR ===")
     print(f"Input: {input_file}")
     print(f"Output directory: {output_dir}")
+    print("Note: Only recipes with cuisine tags will be processed")
     
     # Run separation
     results = separate_meal_types(input_file, output_dir)
     
-    print("\\n=== FINAL SUMMARY ===")
+    print("\n=== FINAL SUMMARY ===")
     total_categorized = sum(results.values())
     for meal_type, count in results.items():
         print(f"{meal_type.capitalize()}: {count:,} recipes")
     
-    print(f"\\nTotal categorized: {total_categorized:,} recipes")
-    print("\\nNote: Some recipes may appear in multiple categories!")
-    print("Only recipes with explicit meal type tags are included.")
+    print(f"\nTotal categorized: {total_categorized:,} recipes")
+    print("\n✅ All output files include 'tags' column for cuisine filtering")
+    print("✅ Only recipes with cuisine tags are included")
+    print("\nNote: Some recipes may appear in multiple categories!")
+    print("Recipes must have BOTH meal type tags AND cuisine tags to be included.")
