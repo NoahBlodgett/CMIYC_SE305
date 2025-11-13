@@ -42,7 +42,7 @@ function isValidHeight(height)
 // getAge() { return this.age; }
 function isValidAge(age)
 {
-    return (age > 0);
+    return (age > 0 && age < 150);
 }
 
 //  getGender() { return this.gender; }
