@@ -21,6 +21,8 @@ abstract class Routes {
   static const settings = '/settings';
   static const security = '/settings/security';
   static const workouts = '/workouts';
+  static const workoutLogTimed = '/workouts/log_timed';
+  static const workoutLogStrength = '/workouts/log_strength';
   static const workoutRecent = '/workouts/recent';
   static const workoutAi = '/workouts/ai';
   static const workoutBuild = '/workouts/build';
@@ -50,6 +52,10 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const SecurityPage());
       case Routes.workouts:
         return MaterialPageRoute(builder: (_) => const WorkoutPage());
+      case Routes.workoutLogTimed:
+        return MaterialPageRoute(builder: (_) => const TimedLogPage());
+      case Routes.workoutLogStrength:
+        return MaterialPageRoute(builder: (_) => const StrengthLogPage());
       case Routes.workoutRecent:
         return MaterialPageRoute(builder: (_) => const RecentProgramsPage());
       case Routes.workoutAi:
