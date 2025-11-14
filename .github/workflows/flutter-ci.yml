@@ -77,8 +77,10 @@ jobs:
           api-level: 33
           arch: x86_64
           target: google_apis
-          profile: pixel_6
-          script: cd frontend/cache_me_if_you_can && flutter test integration_test/
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: cd frontend/cache_me_if_you_can && flutter test integration_test/ --timeout=2m
 
   build_android:
     name: Build Android (APK)
