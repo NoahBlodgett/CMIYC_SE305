@@ -4,19 +4,19 @@ import sys
 from pathlib import Path
 
 # Add parent directory to path for imports
-sys.path.append(str(Path(__file__).parent))
-from get_meals import GetMeals
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from src.models.meal_selector import GetMeals
 
 def greedy_meal_selection(user, overused):
     allergies = user.get('allergies', [])
     filter_out = allergies + overused
 
     # Load data
-    breakfast_df = pd.read_csv('data/foods/by_meal_type/breakfast_recipes.csv')
-    lunch_df = pd.read_csv('data/foods/by_meal_type/lunch_recipes.csv')
-    dinner_df = pd.read_csv('data/foods/by_meal_type/dinner_recipes.csv')
-    snacks_df = pd.read_csv('data/foods/by_meal_type/snacks_recipes.csv')
-    staples_df = pd.read_csv('data/foods/by_meal_type/staples.csv')
+    breakfast_df = pd.read_csv('data/raw/by_meal_type/breakfast_recipes.csv')
+    lunch_df = pd.read_csv('data/raw/by_meal_type/lunch_recipes.csv')
+    dinner_df = pd.read_csv('data/raw/by_meal_type/dinner_recipes.csv')
+    snacks_df = pd.read_csv('data/raw/by_meal_type/snacks_recipes.csv')
+    staples_df = pd.read_csv('data/raw/by_meal_type/staples.csv')
 
     if filter_out:
         print(f"Filtering out recipes with allergens or overused ingredients: {filter_out}")
@@ -44,11 +44,11 @@ def weekly_greedy_meal_selection(user, ingredients=None):
     allergies = user.get('allergies', [])
 
     # Load data
-    breakfast_df = pd.read_csv('data/foods/by_meal_type/breakfast_recipes.csv')
-    lunch_df = pd.read_csv('data/foods/by_meal_type/lunch_recipes.csv')
-    dinner_df = pd.read_csv('data/foods/by_meal_type/dinner_recipes.csv')
-    snacks_df = pd.read_csv('data/foods/by_meal_type/snacks_recipes.csv')
-    staples_df = pd.read_csv('data/foods/by_meal_type/staples.csv')
+    breakfast_df = pd.read_csv('data/raw/by_meal_type/breakfast_recipes.csv')
+    lunch_df = pd.read_csv('data/raw/by_meal_type/lunch_recipes.csv')
+    dinner_df = pd.read_csv('data/raw/by_meal_type/dinner_recipes.csv')
+    snacks_df = pd.read_csv('data/raw/by_meal_type/snacks_recipes.csv')
+    staples_df = pd.read_csv('data/raw/by_meal_type/staples.csv')
 
     if allergies:
         print(f"Filtering out recipes with allergens: {allergies}")

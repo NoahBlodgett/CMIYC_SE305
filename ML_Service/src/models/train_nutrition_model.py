@@ -5,11 +5,11 @@ import pandas as pd
 from pathlib import Path
 
 # Ensure project root is on sys.path so `src` package can be imported when running from /scripts
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]  # Go up to ML_Service root
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.config import TARGET, DATA_DIR
+from config.config import TARGET, DATA_DIR
 
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
@@ -18,18 +18,16 @@ from sklearn.metrics import mean_absolute_error, r2_score
 
 # Resolve DATA_DIR relative to project root when a relative path is provided.
 from pathlib import Path as _Path
-_data_dir = _Path(DATA_DIR)
+_data_dir = _Path("../../data/raw")  # Direct path to data
 if not _data_dir.is_absolute():
-    # DATA_DIR in src.config is relative to the `src/` package (e.g. "../data").
-    # Resolve it relative to ML_Service/src so we get ML_Service/data.
-    src_dir = _Path(ROOT) / "src"
-    _data_dir = (src_dir / _data_dir).resolve()
+    # Make it relative to this file's location
+    _data_dir = (Path(__file__).parent / _data_dir).resolve()
 
 TRAIN_CSV = str(_data_dir / "nutrition_train.csv")
 TEST_CSV = str(_data_dir / "nutrition_test.csv")
 
 # Model artifacts saves the state of the model for use
-ARTIFACT_DIR = "artifacts"
+ARTIFACT_DIR = "../../artifacts"
 MODEL_DIR = os.path.join(ARTIFACT_DIR, "models")
 REPORT_DIR = os.path.join(ARTIFACT_DIR, "reports")
 MODEL_PATH = os.path.join(MODEL_DIR, "model.joblib")

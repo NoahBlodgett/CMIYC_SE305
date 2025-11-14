@@ -46,7 +46,7 @@ async def generate(user: UserData):
         nutrition_targets = getUserTarget(user_dict)
         
         # Filter foods based on allergies/preferences
-        filtered_foods = filterFoods(user_dict, path="data/foods/staples.csv")
+        filtered_foods = filterFoods(user_dict, path="../../data/raw/by_meal_type/staples.csv")
         
         return {
             "nutrition_targets": nutrition_targets,

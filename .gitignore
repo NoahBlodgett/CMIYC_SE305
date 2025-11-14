@@ -3,6 +3,13 @@
 !staples.csv
 !nutrition.csv
 
+# Processed data files (ML models output)
+*.parquet
+*.pkl
+*.joblib
+ML_Service/data/processed/
+ML_Service/data/interim/
+
 # Python virtual environment (IMPORTANT!)
 .venv/
 venv/

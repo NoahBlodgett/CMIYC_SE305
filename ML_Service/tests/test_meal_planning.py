@@ -5,9 +5,11 @@ Test script for the meal planning functionality
 
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from scripts.greedy_meal import weekly_greedy_meal_selection
+# Add the ML_Service root to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.models.meal_planning import weekly_greedy_meal_selection
 
 def test_weekly_meal_planning():
     # Test user data

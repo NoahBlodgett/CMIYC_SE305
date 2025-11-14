@@ -4,14 +4,14 @@ from pathlib import Path
 from typing import Dict, Optional
 
 # Add parent directory to path for imports
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from api.services.ml_models.nutritionRanker import getUserTarget
 
 class GetMeals:
     def __init__(self, breakfast_df=None, lunch_df=None, dinner_df=None, snacks_df=None, staples_df=None):
         # Set up data directory
         script_dir = Path(__file__).parent
-        self.data_dir = script_dir.parent / "data" / "foods" / "by_meal_type"
+        self.data_dir = script_dir.parent.parent / "data" / "raw" / "by_meal_type"
         
         # Use provided DataFrames or load default ones
         if breakfast_df is not None and lunch_df is not None and dinner_df is not None and snacks_df is not None:

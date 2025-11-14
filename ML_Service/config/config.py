@@ -1,4 +1,4 @@
-DATA_DIR = "../data"
+DATA_DIR = "../data/raw"
 
 RAW_FILE = "nutrition_synthetic_training_v2.csv"
 

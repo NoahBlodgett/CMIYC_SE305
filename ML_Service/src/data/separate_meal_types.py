@@ -165,8 +165,8 @@ def separate_meal_types(input_file, output_dir):
 
 if __name__ == "__main__":
     # Configuration
-    input_file = "data/foods/cleaned_recipes.csv"
-    output_dir = "data/foods/by_meal_type"
+    input_file = "../../data/raw/cleaned_recipes.csv"
+    output_dir = "../../data/raw/by_meal_type"
     
     print("=== CUISINE-FILTERED MEAL TYPE SEPARATOR ===")
     print(f"Input: {input_file}")
