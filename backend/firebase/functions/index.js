@@ -16,9 +16,11 @@ expressApp.use(express.json()); // Parse JSON request bodies
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
+const workoutLogRoutes = require('./routes/workoutLogRoutes');
 
 // Register routes
 expressApp.use('/users', userRoutes);
+expressApp.use('/workouts', workoutLogRoutes);
 
 // Export the Express app as a Cloud Function
 exports.api = onRequest(expressApp);
