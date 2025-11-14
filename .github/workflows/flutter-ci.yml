@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main, adding-testing]
+    branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/flutter-ci.yml"
