@@ -50,9 +50,30 @@ void main() {
     });
 
     test('returns 0 for non-positive weight or duration', () {
-      expect(svc.caloriesBurned(activityKey: 'sleeping', weightKg: 0, durationMinutes: 30), 0);
-      expect(svc.caloriesBurned(activityKey: 'sleeping', weightKg: 70, durationMinutes: 0), 0);
-      expect(svc.caloriesBurned(activityKey: 'sleeping', weightKg: -1, durationMinutes: 30), 0);
+      expect(
+        svc.caloriesBurned(
+          activityKey: 'sleeping',
+          weightKg: 0,
+          durationMinutes: 30,
+        ),
+        0,
+      );
+      expect(
+        svc.caloriesBurned(
+          activityKey: 'sleeping',
+          weightKg: 70,
+          durationMinutes: 0,
+        ),
+        0,
+      );
+      expect(
+        svc.caloriesBurned(
+          activityKey: 'sleeping',
+          weightKg: -1,
+          durationMinutes: 30,
+        ),
+        0,
+      );
     });
   });
 
