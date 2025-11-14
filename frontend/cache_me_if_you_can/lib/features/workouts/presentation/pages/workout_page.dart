@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../mock/mock_data.dart';
 import '../../../../utils/program_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../workouts/workouts_dependencies.dart';
+import '../../domain/entities/workout_session.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 
 class WorkoutPage extends StatefulWidget {
@@ -161,6 +164,25 @@ class _WorkoutPageState extends State<WorkoutPage> {
             ),
           ),
           const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            children: [
+              ElevatedButton.icon(
+                icon: const Icon(Icons.timer),
+                label: const Text('Log Timed Activity'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, Routes.workoutLogTimed),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.fitness_center),
+                label: const Text('Log Strength Session'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, Routes.workoutLogStrength),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           _SectionHeader(
             icon: Icons.today_outlined,
             title: "Today's plan",
@@ -185,32 +207,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
             title: 'Recent sessions',
             tint: color.secondary,
           ),
-          _SectionCard(
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 3,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, i) {
-                final items = [
-                  ('Upper body', '45 min · 520 kcal'),
-                  ('Legs & core', '38 min · 430 kcal'),
-                  ('HIIT cardio', '22 min · 310 kcal'),
-                ];
-                final (title, meta) = items[i];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: color.primary.withValues(alpha: 0.15),
-                    child: Icon(Icons.check, color: color.primary),
-                  ),
-                  title: Text(title),
-                  subtitle: Text(meta),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
-                );
-              },
-            ),
-          ),
+          _RecentSessionsCard(color: color),
         ],
       ),
     );
@@ -243,6 +240,91 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
     if (built != null && mounted) {
       setState(() => _currentProgramName = built);
+    }
+  }
+}
+
+class _RecentSessionsCard extends StatelessWidget {
+  final ColorScheme color;
+  const _RecentSessionsCard({required this.color});
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return const _SectionCard(child: Text('Sign in to view sessions'));
+    }
+    return StreamBuilder<List<WorkoutSession>>(
+      stream: workoutsRepository.recentSessions(uid, limit: 10),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _SectionCard(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          );
+        }
+        final sessions = snapshot.data ?? const [];
+        if (sessions.isEmpty) {
+          return _SectionCard(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('No sessions logged'),
+              subtitle: const Text('Log your first workout to see it here.'),
+              trailing: ElevatedButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, Routes.workoutLogTimed),
+                child: const Text('Log'),
+              ),
+            ),
+          );
+        }
+        return _SectionCard(
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: sessions.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final s = sessions[i];
+              final title =
+                  s.name ??
+                  (s.type == WorkoutSessionType.timed
+                      ? s.activityKey ?? 'Timed session'
+                      : 'Strength session');
+              final meta = _metaFor(s);
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: color.primary.withValues(alpha: 0.15),
+                  child: Icon(
+                    s.type == WorkoutSessionType.timed
+                        ? Icons.timer
+                        : Icons.fitness_center,
+                    color: color.primary,
+                  ),
+                ),
+                title: Text(title),
+                subtitle: Text(meta),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {},
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  String _metaFor(WorkoutSession s) {
+    if (s.type == WorkoutSessionType.timed) {
+      final dur = s.durationMinutes ?? 0;
+      final kcal = s.caloriesBurned?.round() ?? 0;
+      return '$dur min · $kcal kcal';
+    } else {
+      final sets = s.sets.length;
+      final totalReps = s.sets.fold<int>(0, (sum, set) => sum + set.reps);
+      final kcal = s.caloriesBurned?.round() ?? 0;
+      return '$sets sets · $totalReps reps · $kcal kcal';
     }
   }
 }
