@@ -252,7 +252,6 @@ class _SecurityPageState extends State<SecurityPage> {
     try {
       final user = _user;
       if (user == null) throw Exception('Not signed in');
-      // Reauthenticate with email/password
       final cred = EmailAuthProvider.credential(
         email: email,
         password: current,
@@ -531,13 +530,11 @@ class _SecurityPageState extends State<SecurityPage> {
     try {
       final u = _user;
       if (u == null) throw Exception('Not signed in');
-      // Delete user doc first
       await FirebaseFirestore.instance
           .collection('users')
           .doc(u.uid)
           .delete()
           .catchError((_) {});
-      // Delete auth account
       await u.delete();
       if (!mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('Account deleted')));
