@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 import 'package:cache_me_if_you_can/features/home/presentation/widgets/progress_waves.dart';
+import 'package:cache_me_if_you_can/features/workouts/workouts_dependencies.dart';
+// CaloriesProgressLoader lives in progress_waves.dart (already imported). Removed unused nutrition_dependencies import.
 
 /// Home dashboard summarizing daily activity and calories.
 /// Extracted from `main.dart` to align with feature-first structure.
@@ -57,48 +59,8 @@ class _HomePageState extends State<HomePage> {
             runSpacing: 16,
             alignment: WrapAlignment.center,
             children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ProgressWidget(
-                    progress: 0.72,
-                    goalLabel: '',
-                    value: '',
-                    color: Colors.greenAccent,
-                    size: circleSize,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '5,200 steps',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    'Goal: 7,200',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ProgressWidget(
-                    progress: 0.18,
-                    goalLabel: '',
-                    value: '',
-                    color: Colors.orangeAccent,
-                    size: circleSize,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '320 / 2500 kcal',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    "Today's calories",
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
+              _WeeklyWorkoutsCircle(size: circleSize),
+              _DailyCaloriesCircle(size: circleSize),
             ],
           ),
         ),
@@ -113,5 +75,106 @@ class _HomePageState extends State<HomePage> {
         ? base
         : (user?.email != null ? user!.email!.split('@').first : 'Friend');
     return 'Hello, $name';
+  }
+}
+
+class _MetricCircle extends StatelessWidget {
+  final double size;
+  final double progress;
+  final String value;
+  final String centerLabel;
+  final String subtitle;
+  final Color color;
+  const _MetricCircle({
+    required this.size,
+    required this.progress,
+    required this.value,
+    required this.centerLabel,
+    required this.subtitle,
+    required this.color,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ProgressWidget(
+          progress: progress.clamp(0.0, 1.0),
+          goalLabel: centerLabel,
+          value: value,
+          color: color,
+          size: size,
+        ),
+        const SizedBox(height: 8),
+        Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+}
+
+class _WeeklyWorkoutsCircle extends StatelessWidget {
+  final double size;
+  const _WeeklyWorkoutsCircle({required this.size});
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    const target = 4;
+    if (uid == null) {
+      return _MetricCircle(
+        size: size,
+        progress: 0,
+        value: '0 / $target',
+        centerLabel: 'sessions',
+        subtitle: 'This week',
+        color: Theme.of(context).colorScheme.primaryContainer,
+      );
+    }
+    return StreamBuilder(
+      stream: weeklyWorkoutSummaryService.streamFor(uid),
+      builder: (context, snapshot) {
+        final total = snapshot.data?.totalSessions ?? 0;
+        final progress = total / target;
+        return _MetricCircle(
+          size: size,
+          progress: progress,
+          value: '$total / $target',
+          centerLabel: 'sessions',
+          subtitle: 'This week',
+          color: Theme.of(context).colorScheme.primaryContainer,
+        );
+      },
+    );
+  }
+}
+
+class _DailyCaloriesCircle extends StatelessWidget {
+  final double size;
+  const _DailyCaloriesCircle({required this.size});
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return _MetricCircle(
+        size: size,
+        progress: 0,
+        value: '0 / 2500',
+        centerLabel: 'kcal',
+        subtitle: 'Today',
+        color: Theme.of(context).colorScheme.secondaryContainer,
+      );
+    }
+    return CaloriesProgressLoader(
+      userId: uid,
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      size: size,
+      bottomBuilder: (ctx, total, target) => _MetricCircle(
+        size: size,
+        progress: target == 0 ? 0 : total / target,
+        value: '$total / $target',
+        centerLabel: 'kcal',
+        subtitle: 'Today',
+        color: Theme.of(context).colorScheme.secondaryContainer,
+      ),
+    );
   }
 }
