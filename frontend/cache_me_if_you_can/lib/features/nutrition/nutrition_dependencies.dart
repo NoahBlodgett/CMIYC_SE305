@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'domain/repositories/nutrition_repository.dart';
 import 'data/repositories/firestore_nutrition_repository.dart';
 import 'data/services/nutrition_ai_service.dart';
+import 'data/services/daily_summary_service.dart';
 
 final NutritionRepository nutritionRepository = FirestoreNutritionRepository(
   db: FirebaseFirestore.instance,
@@ -14,4 +15,8 @@ const _mlBase = String.fromEnvironment(
 );
 final NutritionAiService nutritionAiService = NutritionAiService(
   baseUrl: _mlBase,
+);
+
+final DailySummaryService dailySummaryService = DailySummaryService(
+  db: FirebaseFirestore.instance,
 );

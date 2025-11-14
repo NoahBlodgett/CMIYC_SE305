@@ -1,19 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cache_me_if_you_can/features/nutrition/nutrition_dependencies.dart';
 
-/// Comprehensive user profile page for personalization & progress tracking.
-/// Excludes security/account settings (handled elsewhere).
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
   late final String uid;
-
   @override
   void initState() {
     super.initState();
@@ -25,7 +22,6 @@ class _ProfilePageState extends State<ProfilePage> {
     if (uid.isEmpty) {
       return const Scaffold(body: Center(child: Text('Not signed in')));
     }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -35,26 +31,19 @@ class _ProfilePageState extends State<ProfilePage> {
             .snapshots(),
         builder: (context, snap) {
           final data = snap.data?.data() ?? const <String, dynamic>{};
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
-                    _HeaderCard(data: data),
-                    _MetricsRow(data: data),
-                    _GoalsPreferencesCard(data: data),
-                    _WorkoutSummary(uid: uid),
-                    _NutritionOverview(uid: uid),
-                    _BadgesStreaksCard(data: data),
-                    _HealthDataPlaceholder(),
-                    _HistorySection(uid: uid),
-                    _AiRecommendationsSection(uid: uid),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
+          return ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              const SizedBox(height: 16),
+              _HeaderCard(data: data),
+              _MetricsRow(data: data),
+              _GoalsPreferencesCard(data: data),
+              _WorkoutSummary(uid: uid),
+              _NutritionOverview(uid: uid),
+              _BadgesStreaksCard(data: data),
+              _HealthDataPlaceholder(),
+              _HistorySection(uid: uid),
+              _AiRecommendationsSection(uid: uid),
             ],
           );
         },
@@ -63,7 +52,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// HEADER CARD (avatar, name, level)
 class _HeaderCard extends StatelessWidget {
   final Map<String, dynamic> data;
   const _HeaderCard({required this.data});
@@ -108,7 +96,6 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
-// PHYSICAL METRICS
 class _MetricsRow extends StatelessWidget {
   final Map<String, dynamic> data;
   const _MetricsRow({required this.data});
@@ -150,7 +137,6 @@ class _MetricsRow extends StatelessWidget {
   );
 }
 
-// GOALS & PREFERENCES
 class _GoalsPreferencesCard extends StatelessWidget {
   final Map<String, dynamic> data;
   const _GoalsPreferencesCard({required this.data});
@@ -207,13 +193,11 @@ class _GoalsPreferencesCard extends StatelessWidget {
   Widget _chip(String label) => Chip(label: Text(label));
 }
 
-// WORKOUT SUMMARY PLACEHOLDER (stub stats)
 class _WorkoutSummary extends StatelessWidget {
   final String uid;
   const _WorkoutSummary({required this.uid});
   @override
   Widget build(BuildContext context) {
-    // TODO: Replace with real workout aggregation stream.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Card(
@@ -221,25 +205,22 @@ class _WorkoutSummary extends StatelessWidget {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Workout Progress',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
+            children: const [
+              Text('Workout Progress'),
+              SizedBox(height: 8),
               Wrap(
                 spacing: 24,
-                children: const [
+                children: [
                   _StatBlock(label: 'Workouts', value: '24'),
                   _StatBlock(label: 'PRs', value: '5'),
                   _StatBlock(label: 'Volume', value: '32k'),
                   _StatBlock(label: 'Streak', value: '7d'),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               LinearProgressIndicator(value: 0.24, minHeight: 6),
-              const SizedBox(height: 4),
-              const Text('Next level in 3 workouts'),
+              SizedBox(height: 4),
+              Text('Next level in 3 workouts'),
             ],
           ),
         ),
@@ -265,71 +246,56 @@ class _StatBlock extends StatelessWidget {
   );
 }
 
-// NUTRITION OVERVIEW: aggregates today's calories + target.
 class _NutritionOverview extends StatelessWidget {
   final String uid;
   const _NutritionOverview({required this.uid});
   @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
-    final dayStr =
-        '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final entriesQ = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('nutrition_entries')
-        .where('day', isEqualTo: dayStr);
-    final userDoc = FirebaseFirestore.instance.collection('users').doc(uid);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: entriesQ.snapshots(),
-            builder: (context, entrySnap) {
-              int total = 0;
-              if (entrySnap.hasData) {
-                for (final d in entrySnap.data!.docs) {
-                  total += ((d.data()['calories'] as num?)?.toDouble() ?? 0)
-                      .round();
-                }
+          child: StreamBuilder(
+            stream: dailySummaryService.streamFor(uid, DateTime.now()),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SizedBox(
+                  height: 60,
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
               }
-              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: userDoc.snapshots(),
-                builder: (context, userSnap) {
-                  final target =
-                      (userSnap.data?.data()?['calorie_target'] as num?)
-                          ?.toInt() ??
-                      2500;
-                  final pct = target == 0
-                      ? 0.0
-                      : (total / target).clamp(0.0, 1.0);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              final summary = snapshot.data as dynamic;
+              final int total = summary.totalCalories as int;
+              final int target = summary.targetCalories as int;
+              final double pct = target == 0
+                  ? 0.0
+                  : (total / target).clamp(0.0, 1.0);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nutrition Today',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
                     children: [
-                      Text(
-                        'Nutrition Today',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Expanded(
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 10,
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: LinearProgressIndicator(
-                              value: pct,
-                              minHeight: 10,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text('$total / $target kcal'),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Entries: ${entrySnap.data?.docs.length ?? 0}'),
+                      const SizedBox(width: 12),
+                      Text('$total / $target kcal'),
                     ],
-                  );
-                },
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Entries: ${summary.entriesCount}'),
+                ],
               );
             },
           ),
@@ -339,7 +305,6 @@ class _NutritionOverview extends StatelessWidget {
   }
 }
 
-// BADGES & STREAKS
 class _BadgesStreaksCard extends StatelessWidget {
   final Map<String, dynamic> data;
   const _BadgesStreaksCard({required this.data});
@@ -377,7 +342,6 @@ class _BadgesStreaksCard extends StatelessWidget {
   }
 }
 
-// HEALTH DATA PLACEHOLDER
 class _HealthDataPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -408,13 +372,11 @@ class _HealthDataPlaceholder extends StatelessWidget {
   }
 }
 
-// HISTORY SECTION (workouts & meals basic lists)
 class _HistorySection extends StatelessWidget {
   final String uid;
   const _HistorySection({required this.uid});
   @override
   Widget build(BuildContext context) {
-    // Placeholder queries (replace when workout collections exist)
     final mealsQ = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -476,7 +438,6 @@ class _HistorySection extends StatelessWidget {
   }
 }
 
-// AI RECOMMENDATIONS PLACEHOLDER
 class _AiRecommendationsSection extends StatelessWidget {
   final String uid;
   const _AiRecommendationsSection({required this.uid});

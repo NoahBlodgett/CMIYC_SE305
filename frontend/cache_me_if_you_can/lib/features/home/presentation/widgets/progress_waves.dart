@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// Removed direct Firestore import; now using DailySummaryService abstraction.
+import 'package:cache_me_if_you_can/features/nutrition/nutrition_dependencies.dart';
 
 // NOTE: Previously used mock data. Now wired to Firestore nutrition entries and user profile.
 
@@ -69,8 +70,7 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
   int? _targetCalories;
   Object? _error;
   bool _loading = true;
-  StreamSubscription? _entriesSub;
-  StreamSubscription? _userSub;
+  StreamSubscription? _summarySub;
 
   @override
   void initState() {
@@ -82,8 +82,7 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
   void didUpdateWidget(covariant CaloriesProgressLoader oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userId != widget.userId || oldWidget.date != widget.date) {
-      _entriesSub?.cancel();
-      _userSub?.cancel();
+      _summarySub?.cancel();
       _loading = true;
       _subscribe();
     }
@@ -91,13 +90,11 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
 
   @override
   void dispose() {
-    _entriesSub?.cancel();
-    _userSub?.cancel();
+    _summarySub?.cancel();
     super.dispose();
   }
 
-  String _fmtDay(DateTime dt) =>
-      '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+  // formatting handled in service; keeping widget lean
 
   void _subscribe() {
     final uid = widget.userId;
@@ -108,52 +105,16 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
       });
       return;
     }
-    final dayStr = _fmtDay(widget.date ?? DateTime.now());
+    // day string handled internally by DailySummaryService.
     try {
-      // Nutrition entries stream
-      _entriesSub = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('nutrition_entries')
-          .where('day', isEqualTo: dayStr)
-          .snapshots()
+      _summarySub = dailySummaryService
+          .streamFor(uid, widget.date ?? DateTime.now())
           .listen(
-            (snap) {
-              int total = 0;
-              for (final d in snap.docs) {
-                final data = d.data();
-                final cal = (data['calories'] as num?)?.toDouble() ?? 0;
-                total += cal.round();
-              }
+            (summary) {
               if (!mounted) return;
               setState(() {
-                _totalCalories = total;
-                _loading = false;
-              });
-            },
-            onError: (e) {
-              if (!mounted) return;
-              setState(() {
-                _error = e;
-                _loading = false;
-              });
-            },
-          );
-
-      // User profile stream for target
-      _userSub = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .snapshots()
-          .listen(
-            (doc) {
-              final data = doc.data() ?? const {};
-              final target = (data['calorie_target'] as num?)?.toInt();
-              if (!mounted) return;
-              setState(() {
-                _targetCalories = (target == null || target <= 0)
-                    ? 2500
-                    : target;
+                _totalCalories = summary.totalCalories;
+                _targetCalories = summary.targetCalories;
                 _loading = false;
               });
             },
