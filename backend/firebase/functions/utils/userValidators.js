@@ -15,7 +15,7 @@ function isValidPassword(password)
     const numbers = /\d/;
     const finalTruth = true;
 
-    const isValidLength = (length(password) > 0 && length(password) <= 20);
+    const isValidLength = (password.length > 0 && password.length <= 20);
     const hasSpecialChar = specialChars.test(password);
     const hasNumber = numbers.test(password);
 
