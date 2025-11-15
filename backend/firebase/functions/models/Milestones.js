@@ -39,8 +39,22 @@ class Milestone
     setTargetValue(targetValue) { this.targetValue = targetValue; }
     setCurrentValue(currentValue) { this.currentValue = currentValue; }
     setIsCompleted(isCompleted) { this.isCompleted = isCompleted; }
-    setCompletedDate(completedDate) { this.completedDate = completedDate; }
-    setCreatedDate(createdDate) { this.createdDate = createdDate; }
+    setCompletedDate(completedDate) {
+        // Handle Firestore Timestamp objects
+        if (completedDate && typeof completedDate.toDate === 'function') {
+            this.completedDate = completedDate.toDate();
+        } else {
+            this.completedDate = completedDate;
+        }
+    }
+    setCreatedDate(createdDate) {
+        // Handle Firestore Timestamp objects
+        if (createdDate && typeof createdDate.toDate === 'function') {
+            this.createdDate = createdDate.toDate();
+        } else {
+            this.createdDate = createdDate;
+        }
+    }
 
     // Update progress towards milestone
     updateProgress(newValue)

@@ -31,7 +31,14 @@ class UserBadges
     setEarnedBadges(earnedBadges) { this.earnedBadges = earnedBadges; }
     setCurrentStreak(currentStreak) { this.currentStreak = currentStreak; }
     setLongestStreak(longestStreak) { this.longestStreak = longestStreak; }
-    setLastActivityDate(lastActivityDate) { this.lastActivityDate = lastActivityDate; }
+    setLastActivityDate(lastActivityDate) {
+        // Handle Firestore Timestamp objects
+        if (lastActivityDate && typeof lastActivityDate.toDate === 'function') {
+            this.lastActivityDate = lastActivityDate.toDate();
+        } else {
+            this.lastActivityDate = lastActivityDate;
+        }
+    }
 
     // Add a badge if not already earned
     awardBadge(badgeType)
@@ -59,6 +66,7 @@ class UserBadges
         if (!this.lastActivityDate) {
             // First activity
             this.currentStreak = 1;
+            this.longestStreak = Math.max(1, this.longestStreak);
             this.lastActivityDate = activityDate;
             return;
         }

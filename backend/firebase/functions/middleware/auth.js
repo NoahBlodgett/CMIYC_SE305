@@ -93,6 +93,38 @@ function requireEmailVerification(req, res, next)
   next();
 }
 
+/**
+ * Middleware to check if user has admin privileges
+ * Admin status is stored in custom claims
+ */
+async function requireAdmin(req, res, next) 
+{
+  if (!req.user) {
+    return res.status(401).json({ 
+      error: 'Authentication required' 
+    });
+  }
+
+  try {
+    const auth = getAuth();
+    const user = await auth.getUser(req.user.uid);
+    
+    // Check if user has admin custom claim
+    if (!user.customClaims?.admin) {
+      return res.status(403).json({ 
+        error: 'Forbidden: Admin privileges required' 
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    res.status(500).json({ 
+      error: 'Error verifying admin status' 
+    });
+  }
+}
+
 const rateLimitStore = new Map();
 
 function rateLimit(maxRequests = 10, windowMs = 60000) 
@@ -127,5 +159,6 @@ module.exports = {
   authenticate,
   authorizeUser,
   requireEmailVerification,
+  requireAdmin,
   rateLimit
 };

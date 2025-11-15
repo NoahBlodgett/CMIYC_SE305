@@ -142,49 +142,73 @@ async function addXP(req, res)
 
         const db = getFirestore();
 
-        // Find user level
-        const levelQuery = await db.collection('user_levels')
+        // Find user level document reference
+        const levelQuerySnapshot = await db.collection('user_levels')
             .where('user_id', '==', userID)
             .limit(1)
             .get();
 
-        if (levelQuery.empty)
+        if (levelQuerySnapshot.empty)
         {
             return res.status(404).json({
                 error: 'User level does not exist'
             });
         }
 
-        const levelDoc = levelQuery.docs[0];
-        const levelData = levelDoc.data();
+        const levelDocRef = levelQuerySnapshot.docs[0].ref;
 
-        // Create UserLevel object from data
-        const userLevel = new UserLevel(
-            levelData.user_id,
-            levelData.current_xp,
-            levelData.current_level
-        );
+        // Use transaction to prevent race conditions
+        const result = await db.runTransaction(async (transaction) => {
+            const levelDoc = await transaction.get(levelDocRef);
 
-        // Add XP (this will auto-level up if needed)
-        userLevel.addXP(amount);
+            if (!levelDoc.exists) {
+                throw new Error('User level does not exist');
+            }
 
-        // Update Firestore
-        await db.collection('user_levels').doc(levelDoc.id).update({
-            current_xp: userLevel.getCurrentXP(),
-            current_level: userLevel.getCurrentLevel(),
-            xp_to_next_level: userLevel.getXPToNextLevel(),
-            progress_percentage: userLevel.getProgressToNextLevel()
+            const levelData = levelDoc.data();
+
+            // Create UserLevel object from data
+            const userLevel = new UserLevel(
+                levelData.user_id,
+                levelData.current_xp,
+                levelData.current_level
+            );
+
+            const oldLevel = userLevel.getCurrentLevel();
+
+            // Add XP (this will auto-level up if needed)
+            userLevel.addXP(amount);
+
+            // Update Firestore within transaction
+            transaction.update(levelDocRef, {
+                current_xp: userLevel.getCurrentXP(),
+                current_level: userLevel.getCurrentLevel(),
+                xp_to_next_level: userLevel.getXPToNextLevel(),
+                progress_percentage: userLevel.getProgressToNextLevel()
+            });
+
+            return {
+                levelData: userLevel.toJSON(),
+                leveledUp: userLevel.getCurrentLevel() > oldLevel
+            };
         });
 
         res.status(200).json({
             message: 'XP added successfully',
-            level: userLevel.toJSON(),
-            leveledUp: userLevel.getCurrentLevel() > levelData.current_level
+            level: result.levelData,
+            leveledUp: result.leveledUp
         });
     }
     catch(e)
     {
         console.error('Error adding XP:', e);
+        
+        if (e.message === 'User level does not exist') {
+            return res.status(404).json({
+                error: 'User level does not exist'
+            });
+        }
+        
         res.status(500).json({
             error: 'Internal server error'
         });
