@@ -45,7 +45,6 @@ class User
             email: this.email,
             height: this.height,
             weight: this.weight,
-            goal_weight: this.goal_weight,
             allergies: this.allergies,
             activity_level: this.activity_level,
         };
