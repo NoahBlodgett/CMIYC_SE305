@@ -11,3 +11,5 @@ TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
 STRATIFY_COL = 'Goal'
+
+SPLITS ={'breakfast': 0.25, 'lunch': 0.35, 'dinner': 0.35, 'snacks': 0.05}
