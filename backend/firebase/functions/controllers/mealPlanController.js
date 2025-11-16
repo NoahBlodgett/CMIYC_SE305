@@ -6,11 +6,9 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
 
 async function createWeekPlan(req, res){
     try{
-        const {
-            userID
-        } = req.body;
+        const { userID } = req.params;  // Get userID from URL params instead of body
 
-                // Validate required fields
+        // Validate required fields
         if (!userID)
         {
             return res.status(400).json({
@@ -45,7 +43,7 @@ async function createWeekPlan(req, res){
             });
         }
 
-                // Get the goal data
+        // Get the goal data
         const goalDoc = goalQuery.docs[0];
         let goalData = goalDoc.data();
 

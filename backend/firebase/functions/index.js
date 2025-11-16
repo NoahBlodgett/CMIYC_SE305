@@ -16,9 +16,11 @@ expressApp.use(express.json()); // Parse JSON request bodies
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
+const mealGenerationRoutes = require('./routes/mealGenerationRoutes');
 
 // Register routes
 expressApp.use('/users', userRoutes);
+expressApp.use('/meals', mealGenerationRoutes);
 
 // Export the Express app as a Cloud Function
 exports.api = onRequest(expressApp);
