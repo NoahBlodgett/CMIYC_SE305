@@ -17,7 +17,7 @@ class UserData(BaseModel):
     Weight_lb: float
     Age: int
     Gender: int  # 0 = female, 1 = male
-    Activity_Level: int  # 0-4 scale
+    Activity_Level: float  # 0-4 scale
     Goal: int  # -1 = lose, 0 = maintain, 1 = gain
     allergies: List[str] = []
     preferences: List[str] = []

@@ -5,6 +5,8 @@ Separates API concerns from business logic.
 
 from typing import Dict, List, Tuple, Any
 import sys
+import json
+import numpy as np
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -13,6 +15,34 @@ sys.path.append(str(Path(__file__).parents[2]))
 from api.services.ml_models.nutritionRanker import getUserTarget
 from src.models.create_candidates import CandidatePoolBuilder
 from src.models.meal_planning import WeeklyMealPlanner
+
+
+def sanitize_for_json(obj):
+    """Recursively sanitize data structure for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, (np.integer, np.int64, np.int32, np.int16, np.int8)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32, np.float16)):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return sanitize_for_json(obj.tolist())
+    elif isinstance(obj, (int, float)):
+        if isinstance(obj, float) and (np.isnan(obj) or np.isinf(obj)):
+            return None
+        return obj
+    elif hasattr(obj, 'item'):  # Handle pandas scalars
+        return sanitize_for_json(obj.item())
+    elif hasattr(obj, 'tolist'):  # Handle pandas Series/DataFrame
+        return sanitize_for_json(obj.tolist())
+    else:
+        return obj
 
 
 class NutritionService:
@@ -191,14 +221,14 @@ class NutritionService:
                                            if count >= self.meal_planner.ingredient_limit])
             }
             
-            return {
+            return sanitize_for_json({
                 "success": True,
                 "nutrition_targets": nutrition_targets,
                 "week_plan": week_plan,
                 "ingredient_counts": ingredient_counts,
                 "candidate_stats": candidate_stats,
                 "ingredient_stats": ingredient_stats
-            }
+            })
             
         except ValueError as ve:
             # Re-raise validation errors
