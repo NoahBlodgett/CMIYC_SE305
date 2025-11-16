@@ -12,15 +12,6 @@ ACTIVITY_MULTIPLIERS = {
 }
 
 def getUserTarget(user) -> tuple[int, float, float, float]:
-    """
-    Calculate target calories and macros for a user.
-    
-    Args:
-        user: Dict with user profile data
-        
-    Returns:
-        tuple: (calories, protein_g, fat_g, carb_g)
-    """
     # Required fields for the model
     required_fields = ['Height_in', 'Weight_lb', 'Age', 'Gender', 'Activity_Level', 'Goal']
     missing_fields = [f for f in required_fields if f not in user]

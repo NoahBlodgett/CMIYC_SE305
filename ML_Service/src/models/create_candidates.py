@@ -81,12 +81,9 @@ class CandidatePoolBuilder:
             }
         return meal_limits
     
-    def _get_meal_scoring_targets(self, 
-                                 meal_type: str, 
-                                 per_meal_targets: Dict[str, Dict[str, float]],
-                                 kcal_band_width: float = 0.20,
-                                 kcal_window_extra: float = 0.40) -> Dict[str, float]:
-        """Get scoring targets for a specific meal type."""
+    def _get_meal_scoring_targets(self, meal_type: str, per_meal_targets: Dict[str, Dict[str, float]],
+                                 kcal_band_width: float = 0.20, kcal_window_extra: float = 0.40) -> Dict[str, float]:
+        
         target_info = per_meal_targets[meal_type]
         target_kcal = float(target_info["calories"])
         protein_target = float(target_info["protein_g"])
@@ -108,15 +105,9 @@ class CandidatePoolBuilder:
             "protein_target": protein_target,
         }
     
-    def _compute_nutrition_fit(self, 
-                              row: pd.Series, 
-                              kcal_low: float, 
-                              kcal_high: float, 
-                              window_low: float,
-                              window_high: float, 
-                              protein_target: float, 
-                              protein_tol: float = 0.20) -> float:
-        """Compute nutrition fitness score for a recipe."""
+    def _compute_nutrition_fit(self, row: pd.Series, kcal_low: float, kcal_high: float, window_low: float,
+                              window_high: float, protein_target: float, protein_tol: float = 0.20) -> float:
+        
         cal = row['per_serving_kcal']
         protein = row['protein_g']
 
@@ -152,7 +143,6 @@ class CandidatePoolBuilder:
         return max(0.0, min(1.0, float(fit)))
     
     def _build_cold_start_user_vector(self, emb_matrix: np.ndarray) -> np.ndarray:
-        """Build initial user preference vector from recipe embeddings."""
         mean_vec = emb_matrix.mean(axis=0)
         norm = np.linalg.norm(mean_vec)
         if norm == 0:
@@ -160,7 +150,6 @@ class CandidatePoolBuilder:
         return mean_vec / norm
     
     def _compute_preference_scores(self, emb_matrix: np.ndarray, user_vec: np.ndarray) -> np.ndarray:
-        """Compute preference scores using embeddings and user vector."""
         user_vec = np.asarray(user_vec, dtype=np.float32).reshape(-1)
         norm = np.linalg.norm(user_vec)
         if norm > 0:
@@ -173,7 +162,6 @@ class CandidatePoolBuilder:
         return sims_scaled
     
     def _compute_cluster_novelty(self, cluster_ids: np.ndarray) -> np.ndarray:
-        """Compute novelty scores based on cluster rarity."""
         unique, counts = np.unique(cluster_ids, return_counts=True)
         freq = dict(zip(unique, counts))
         inv_freq = np.array([1.0 / freq[c] for c in cluster_ids], dtype=np.float32)
@@ -182,7 +170,6 @@ class CandidatePoolBuilder:
         return novelty_scaled
     
     def _apply_diversity_quota(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply diversity constraints to prevent cluster domination."""
         max_per_cluster = int(self.max_cluster_fraction * self.pool_size)
         if max_per_cluster < 1:
             max_per_cluster = 1
@@ -209,7 +196,6 @@ class CandidatePoolBuilder:
         return pd.DataFrame(selected_rows).reset_index(drop=True)
     
     def _apply_user_filtering(self, df_meal: pd.DataFrame, user_data: Dict) -> pd.DataFrame:
-        """Apply allergen and preference filtering."""
         if not user_data:
             return df_meal
             
@@ -228,8 +214,6 @@ class CandidatePoolBuilder:
             df_meal = df_meal[~df_meal[name_col].str.lower().str.contains(
                 pattern, case=False, na=False, regex=True)]
             removed_count = original_count - len(df_meal)
-            if removed_count > 0:
-                print(f"  Filtered out {removed_count} recipes due to allergies/preferences")
         
         if df_meal.empty:
             raise ValueError(f"No recipes available after filtering")
@@ -237,7 +221,6 @@ class CandidatePoolBuilder:
         return df_meal
     
     def _standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Standardize column names for compatibility."""
         df = df.copy()
         
         # Calorie column standardization
@@ -283,12 +266,8 @@ class CandidatePoolBuilder:
         
         return self._standardize_columns(df_all)
     
-    def score_meal_candidates(self, 
-                             df_all: pd.DataFrame, 
-                             meal_type: str,
-                             per_meal_targets: Dict[str, Dict[str, float]], 
+    def score_meal_candidates(self, df_all: pd.DataFrame, meal_type: str, per_meal_targets: Dict[str, Dict[str, float]], 
                              user_data: Optional[Dict] = None) -> pd.DataFrame:
-        """Score and select candidates for a specific meal type."""
         
         # Filter to meal type
         df_meal = df_all[df_all["meal_type"] == meal_type].copy()
@@ -369,16 +348,6 @@ class CandidatePoolBuilder:
     def build_pools(self, 
                    daily_targets: Union[Dict[str, float], Tuple[float, float, float, float]], 
                    user_data: Optional[Dict] = None) -> Dict[str, pd.DataFrame]:
-        """
-        Build candidate pools for all meal types.
-        
-        Args:
-            daily_targets: Either dict with nutrition targets or tuple (calories, protein_g, fat_g, carb_g)
-            user_data: User profile data including allergies and preferences
-            
-        Returns:
-            Dictionary mapping meal types to candidate DataFrames
-        """
         
         # Convert tuple to dict if needed
         if isinstance(daily_targets, tuple):
@@ -419,19 +388,3 @@ class CandidatePoolBuilder:
                 outputs[meal_type] = pd.DataFrame()
 
         return outputs
-
-
-# Backwards compatibility functions
-def build_all_candidate_pools(daily_targets: Union[Dict[str, float], Tuple], 
-                             user_data: Dict = None) -> Dict[str, pd.DataFrame]:
-    """Backwards compatibility wrapper for the original function."""
-    builder = CandidatePoolBuilder()
-    return builder.build_pools(daily_targets, user_data)
-
-
-def score_and_select_for_meal(df_all: pd.DataFrame, meal_type: str,
-                              per_meal_targets: Dict[str, Dict[str, float]],
-                              user_data: Dict = None) -> pd.DataFrame:
-    """Backwards compatibility wrapper for the original function."""
-    builder = CandidatePoolBuilder()
-    return builder.score_meal_candidates(df_all, meal_type, per_meal_targets, user_data)

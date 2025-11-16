@@ -51,7 +51,6 @@ class GetMeals:
         }
     
     def load_meal_dataframes(self):
-        """Load all meal DataFrames once during initialization (fallback method)."""
         try:
             self.breakfast_df = pd.read_csv(self.data_dir / "breakfast_recipes.csv")
             self.lunch_df = pd.read_csv(self.data_dir / "lunch_recipes.csv")
@@ -280,7 +279,6 @@ class GetMeals:
         }
 
     def filterSnacks(self, foods_df: pd.DataFrame) -> pd.DataFrame:
-        """Filter staples DataFrame to remove supplements and inappropriate items."""
         
         # Create a copy and standardize the name column
         filtered_df = foods_df.copy()
@@ -310,25 +308,5 @@ class GetMeals:
             (filtered_df['carbs_g'] >= 0) &        # No negative carbs
             (filtered_df['fat_g'] >= 0)            # No negative fat
         ]
-        print(f"Filtered staples: {len(foods_df)} → {len(filtered_df)} items")
         
         return filtered_df.drop(['name_lower'], axis=1)
-    
-# Example usage
-if __name__ == "__main__":
-    user_data = {
-        'Height_in': 70,
-        'Weight_lb': 180,
-        'Age': 25,
-        'Gender': 1,
-        'Activity_Level': 2,
-        'Goal': 0
-    }
-    
-    print("SIMPLE MEAL PLANNER")
-    print("=" * 50)
-    
-    planner = GetMeals()
-    meal_plan = planner.create_meal_plan(user_data)
-    
-    print(f"Total: {meal_plan['total_nutrition']['calories']} cal, {meal_plan['total_nutrition']['protein_g']:.1f}g protein")

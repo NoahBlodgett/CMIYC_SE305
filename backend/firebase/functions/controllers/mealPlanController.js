@@ -49,7 +49,7 @@ async function createWeekPlan(req, res){
 
         let goal = 0;
 
-        switch (goalData.weight_objective){
+        switch (goalData.weight_objective) {
             case "LOSE_WEIGHT":
                 goal = -1;
                 break;
@@ -80,14 +80,12 @@ async function createWeekPlan(req, res){
 
         /*
         DATA RETURNED
-            return {
+            return sanitize_for_json({
                 "success": True,
                 "nutrition_targets": nutrition_targets,
                 "week_plan": week_plan,
-                "ingredient_counts": ingredient_counts,
-                "candidate_stats": candidate_stats,
-                "ingredient_stats": ingredient_stats
-            }
+                "ingredient_counts": ingredient_counts
+            })
         */
         return res.status(200).json({
             success: true,

@@ -23,33 +23,20 @@ class WeeklyMealPlanner:
     def __init__(self, 
                  ingredient_limit: int = 4,
                  days_of_week: List[str] = None):
-        """
-        Initialize the weekly meal planner.
-        
-        Args:
-            ingredient_limit: Max uses per ingredient per week before filtering
-            days_of_week: List of days to plan (defaults to full week)
-        """
+
         self.ingredient_limit = ingredient_limit
-        self.days_of_week = days_of_week or [
-            "Monday", "Tuesday", "Wednesday", "Thursday", 
-            "Friday", "Saturday", "Sunday"
-        ]
+        self.days_of_week = days_of_week or ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         
         # Track state across the week
         self.ingredient_counts = {}
         self.global_meal_planner = None
         self.week_plan = {}
         
-    def _filter_candidate_data(self, 
-                              data: Dict[str, pd.DataFrame], 
-                              filter_terms: List[str]) -> Dict[str, pd.DataFrame]:
-        """Apply filtering to all candidate DataFrames."""
+    def _filter_candidate_data(self, data: Dict[str, pd.DataFrame], filter_terms: List[str]) -> Dict[str, pd.DataFrame]:
+
         if not filter_terms:
             return data
             
-        print(f"Filtering out recipes with allergens or overused ingredients: {filter_terms}")
-        
         return {
             'breakfast': self._filter_foods(data['breakfast'], filter_terms),
             'lunch': self._filter_foods(data['lunch'], filter_terms),
@@ -58,7 +45,7 @@ class WeeklyMealPlanner:
         }
     
     def _filter_foods(self, df: pd.DataFrame, filters: List[str]) -> pd.DataFrame:
-        """Filter out recipes with allergens using regex."""
+
         if not filters:
             return df
         
@@ -77,7 +64,7 @@ class WeeklyMealPlanner:
             return df
     
     def _extract_ingredients(self, meal_plan: Dict[str, Any]) -> List[str]:
-        """Extract all ingredients from a daily meal plan."""
+
         ingredients = []
         
         meals = meal_plan.get('meals', {})
@@ -100,35 +87,24 @@ class WeeklyMealPlanner:
         return ingredients
     
     def _get_overused_ingredients(self) -> List[str]:
-        """Get list of ingredients that have exceeded the usage limit."""
+
         return [
             ingredient for ingredient, count in self.ingredient_counts.items() 
             if count >= self.ingredient_limit
         ]
     
     def _update_ingredient_counts(self, ingredients: List[str]):
-        """Update the running count of ingredients used."""
+
         for ingredient in ingredients:
             if ingredient in self.ingredient_counts:
                 self.ingredient_counts[ingredient] += 1
             else:
                 self.ingredient_counts[ingredient] = 1
     
-    def plan_daily_meals(self, 
-                        user: Dict[str, Any], 
-                        candidate_data: Dict[str, pd.DataFrame],
+    # single day plans
+    def plan_daily_meals(self, user: Dict[str, Any], candidate_data: Dict[str, pd.DataFrame],
                         overused_ingredients: List[str] = None) -> Tuple[Dict[str, Any], List[str]]:
-        """
-        Plan meals for a single day.
-        
-        Args:
-            user: User profile data
-            candidate_data: Candidate pools for each meal type
-            overused_ingredients: Ingredients to avoid due to overuse
-            
-        Returns:
-            Tuple of (daily_meal_plan, ingredients_used)
-        """
+
         # Combine allergens and overused ingredients for filtering
         allergies = user.get('allergies', [])
         filter_out = allergies + (overused_ingredients or [])
@@ -157,21 +133,9 @@ class WeeklyMealPlanner:
         
         return meal_plan, ingredient_list
     
-    def plan_weekly_meals(self, 
-                         user: Dict[str, Any], 
-                         candidate_data: Dict[str, pd.DataFrame],
+    def plan_weekly_meals(self, user: Dict[str, Any], candidate_data: Dict[str, pd.DataFrame],
                          initial_ingredient_counts: Dict[str, int] = None) -> Tuple[Dict[str, Dict], Dict[str, int]]:
-        """
-        Plan meals for an entire week with ingredient tracking.
         
-        Args:
-            user: User profile data
-            candidate_data: Candidate pools for each meal type
-            initial_ingredient_counts: Starting ingredient counts
-            
-        Returns:
-            Tuple of (week_plan, final_ingredient_counts)
-        """
         # Initialize or reset state
         self.ingredient_counts = initial_ingredient_counts.copy() if initial_ingredient_counts else {}
         self.week_plan = {}
@@ -198,46 +162,10 @@ class WeeklyMealPlanner:
             
             # Log progress
             print(f"{day} ingredients: {todays_ingredients}")
-            print(f"Running ingredient counts after {day}: {dict(list(self.ingredient_counts.items())[:5])}")
             
         return self.week_plan, self.ingredient_counts
     
     def reset_state(self):
-        """Reset the planner state for a new week."""
         self.ingredient_counts = {}
         self.global_meal_planner = None
         self.week_plan = {}
-
-
-# Backwards compatibility functions
-def greedy_meal_selection(user, data, overused=[]):
-    """Legacy function for backwards compatibility."""
-    planner = WeeklyMealPlanner()
-    daily_plan, ingredient_list = planner.plan_daily_meals(user, data, overused)
-    return daily_plan, ingredient_list
-
-def greedy_meal_selection_with_planner(user, data, overused=[], meal_planner=None):
-    """Legacy function for backwards compatibility."""
-    planner = WeeklyMealPlanner()
-    if meal_planner:
-        planner.global_meal_planner = meal_planner
-    
-    daily_plan, ingredient_list = planner.plan_daily_meals(user, data, overused)
-    return daily_plan, ingredient_list, planner.global_meal_planner
-
-def weekly_greedy_meal_selection(user, data, ingredients=None):
-    """Legacy function for backwards compatibility."""
-    planner = WeeklyMealPlanner()
-    week_plan, ingredient_counts = planner.plan_weekly_meals(user, data, ingredients)
-    return week_plan, ingredient_counts  
-
-# Utility functions (kept as functions since they're simple and stateless)
-def filter_foods(df, filters):
-    """Legacy function for backwards compatibility."""
-    planner = WeeklyMealPlanner()
-    return planner._filter_foods(df, filters)
-
-def getIngredients(meal_plan):
-    """Legacy function for backwards compatibility.""" 
-    planner = WeeklyMealPlanner()
-    return planner._extract_ingredients(meal_plan)
