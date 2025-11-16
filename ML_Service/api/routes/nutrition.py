@@ -2,15 +2,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
 import sys
-import pandas as pd
 from pathlib import Path
-from api.services.ml_models.nutritionRanker import getUserTarget
-from api.utils import filterFoods
-from src.models.create_candidates import build_all_candidate_pools
-from src.models.meal_planning import weekly_greedy_meal_selection
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parents[2]))
+
+from api.services.nutrition_service import nutrition_service
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -41,52 +38,65 @@ class UserData(BaseModel):
 
 @router.post("/generate")
 async def generate(user: UserData):
+    """
+    Generate a complete weekly meal plan with nutrition targeting.
+    
+    Args:
+        user: User profile data including demographics, goals, allergies, and preferences
+        
+    Returns:
+        Complete meal plan with nutrition targets, weekly schedule, and statistics
+    """
     try:
-        # Convert Pydantic model to dict
+        # Convert Pydantic model to dict for the service
         user_dict = user.dict()
         
-        # Get nutrition targets from ML model (returns tuple)
-        nutrition_targets_tuple = getUserTarget(user_dict)
+        # Generate complete meal plan using the service
+        result = nutrition_service.generate_complete_meal_plan(user_dict)
         
-        # Convert tuple to dict for all downstream functions
-        nutrition_targets_dict = {
-            'calories': nutrition_targets_tuple[0],
-            'protein_g': nutrition_targets_tuple[1],
-            'fat_g': nutrition_targets_tuple[2],
-            'carb_g': nutrition_targets_tuple[3]
-        }
-        
-        # Pass user_dict instead of user object
-        candidates = build_all_candidate_pools(
-            daily_targets=nutrition_targets_tuple,  # build_all_candidate_pools can handle tuple
-            user_data=user_dict  # Pass dict, not Pydantic object
-        )
-
-        week_plan, ingredient_counts = weekly_greedy_meal_selection(user_dict, candidates)
-
-        # ADD RETURN STATEMENT
-        return {
-            "success": True,
-            "nutrition_targets": nutrition_targets_dict,
-            "week_plan": week_plan,
-            "ingredient_counts": ingredient_counts,
-            "candidate_stats": {
-                "breakfast_count": len(candidates.get('breakfast', [])),
-                "lunch_count": len(candidates.get('lunch', [])),
-                "dinner_count": len(candidates.get('dinner', [])),
-                "snack_count": len(candidates.get('snack', []))  # Note: 'snack' not 'snacks'
-            }
-        }
+        return result
     
     except ValueError as e:
+        # Client errors (bad input data)
         raise HTTPException(status_code=400, detail=f"Invalid user data: {str(e)}")
     except FileNotFoundError as e:
+        # Server errors (missing files)
         raise HTTPException(status_code=500, detail=f"Data file not found: {str(e)}")
+    except RuntimeError as e:
+        # Server errors (processing failures)
+        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating nutrition: {str(e)}")
+        # Catch-all for unexpected errors
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 @router.get("/health")
 async def health_check():
-    """Health check endpoint"""
+    """Health check endpoint for the nutrition service"""
     return {"status": "Nutrition service is running"}
+
+@router.get("/config")
+async def get_config():
+    """Get current service configuration"""
+    return {
+        "candidate_pool_size": nutrition_service.candidate_builder.pool_size,
+        "ingredient_limit": nutrition_service.meal_planner.ingredient_limit,
+        "candidate_recall_size": nutrition_service.candidate_builder.recall_size
+    }
+
+@router.post("/config")
+async def update_config(
+    candidate_pool_size: int = None,
+    ingredient_limit: int = None,
+    candidate_recall_size: int = None
+):
+    """Update service configuration"""
+    try:
+        nutrition_service.reconfigure(
+            candidate_pool_size=candidate_pool_size,
+            ingredient_limit=ingredient_limit,
+            candidate_recall_size=candidate_recall_size
+        )
+        return {"message": "Configuration updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid configuration: {str(e)}")
 

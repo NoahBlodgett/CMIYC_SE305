@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 from pathlib import Path
+from typing import Dict, Tuple, Optional, Union
 
 from sklearn.preprocessing import MinMaxScaler
 
@@ -14,432 +15,423 @@ sys.path.append(str(utils_path))
 from config import SPLITS
 from utils import mealTargets
 
-DAILY_KCAL = None
 
-# Use config splits to create meal limits
-MEAL_LIMITS = {}
-for meal, split in SPLITS.items():
-    margin = 0.05  # ±5% around the config split
-    MEAL_LIMITS[meal] = {
-        'min': max(0.0, split - margin), 
-        'max': split + margin
-    }
-
-RECALL_WINDOW_PCT = .40
-POOL_SIZE = 40
-RECALL_SIZE = 200
-
-ALPHA_PREF = .55 
-BETA_FIT = .35
-GAMMA_NOV = .10
-
-MAX_CLUSTER_FRACTION = .25
-
-def compute_meal_limits(meal_type: str) -> tuple[float, float]:
-    """Get calorie limits for a specific meal type based on DAILY_KCAL"""
-    if DAILY_KCAL is None:
-        raise ValueError("DAILY_KCAL must be set before computing meal limits")
-    
-    limits = MEAL_LIMITS.get(meal_type)
-    if limits is None:
-        raise ValueError(f"Unknown meal_type: {meal_type}")
-    
-    low_limit = DAILY_KCAL * limits['min']
-    high_limit = DAILY_KCAL * limits['max']
-    
-    return low_limit, high_limit
-
-def get_meal_scoring_targets(meal_type: str, per_meal_targets: dict[str, dict[str, float]],
-    kcal_band_width: float = 0.20,    # band = +/- 10% around target
-    kcal_window_extra: float = 0.40,  # recall window = band +/- 40%
-) -> dict[str, float]:
-    # Pull this meal's macro targets from the per_meal_targets dict
-    target_info = per_meal_targets[meal_type]
-
-    target_kcal = float(target_info["calories"])
-    protein_target = float(target_info["protein_g"])
-
-    # Compute the ideal kcal band around the target
-    half_band_width = target_kcal * (kcal_band_width / 2.0)
-
-    kcal_low = target_kcal - half_band_width
-    kcal_high = target_kcal + half_band_width
-
-    # 3) Compute a wider recall window around the band
-    #    Example: window_extra_frac=0.40 -> window extends band by 40% on each side
-    window_low = kcal_low * (1.0 - kcal_window_extra)
-    window_high = kcal_high * (1.0 + kcal_window_extra)
-
-    return {
-        "kcal_low": kcal_low,
-        "kcal_high": kcal_high,
-        "window_low": window_low,
-        "window_high": window_high,
-        "protein_target": protein_target,
-    }
-
-def nutrition_fit(row: pd.Series, kcal_low: float, kcal_high: float, window_low: float,
-                window_high: float, protein_target: float, protein_tol: float = 0.20,   # +/- 20% of target is "good"
-) -> float:    
-    
-    cal = row['per_serving_kcal']
-    protein = row['protein_g']
-
-    # Use the passed window values (these should be computed in get_meal_scoring_targets)
-
-    if cal < window_low or cal > window_high:
-        kcal_score = 0.0 # 0 score if outside window
-    else:
-        # Inside the ideal band
-        if kcal_low <= cal <= kcal_high:
-            kcal_score = 1.0
-        # Below the band but inside the window: decay 1 -> 0 as we go toward window_low
-        elif cal < kcal_low:
-            denom = max(1e-6, kcal_low - window_low)
-            kcal_score = 1.0 - (kcal_low - cal) / denom
-        # Above the band but inside the window: decay 1 -> 0 as we go toward window_high
-        else:  # kcal > kcal_high and <= window_high
-            denom = max(1e-6, window_high - kcal_high)
-            kcal_score = 1.0 - (cal - kcal_high) / denom
-
-        # Clamp just in case
-        kcal_score = max(0.0, min(1.0, float(kcal_score)))
-    
-    tol = protein_tol * protein_target          # e.g. +/- 20% of target is "good"
-    max_error = 3.0 * tol                            # beyond this, score ~ 0
-
-    error = abs(protein - protein_target)
-
-    if error <= tol:
-        protein_score = 1.0
-    elif error >= max_error:
-        protein_score = 0.0
-    else:
-        # Linearly decay from 1 at tol to 0 at max_error
-        protein_score = 1.0 - (error - tol) / (max_error - tol)
-
-    protein_score = max(0.0, min(1.0, float(protein_score)))
-
-    fit = 0.7 * kcal_score + 0.3 * protein_score
-    fit = max(0.0, min(1.0, float(fit)))
-
-    return fit
-
-# essentially starts a user as liking the avergae of all the recipes as a start
-def build_cold_start_user_vector(emb_matrix: np.ndarray) -> np.ndarray:
-    # Average across all recipes to get a "typical" embedding
-    mean_vec = emb_matrix.mean(axis=0)  # shape: (emb_dim,)
-
-    # Compute its L2 norm (length of the vector)
-    norm = np.linalg.norm(mean_vec)
-
-    # If norm is zero (degenerate case), just return the unnormalized mean
-    if norm == 0:
-        return mean_vec
-
-    # Otherwise, return the unit vector (L2-normalized)
-    return mean_vec / norm
-
-# unused for now.
-def build_user_preference_vector(
-    history_emb: np.ndarray,
-    global_emb_matrix: np.ndarray | None = None,
-    history_weight: float = 0.7,
-) -> np.ndarray:
+class CandidatePoolBuilder:
     """
-    Build a personalized user vector from the embeddings of recipes the user
-    has actually chosen (accepted/liked/cooked).
-
-    If history is empty, or too small, this falls back to a cold-start vector
-    based on global_emb_matrix (if provided) or just returns the mean.
-
-    Args:
-        history_emb:      (n_history, emb_dim) embeddings of recipes this user liked.
-        global_emb_matrix:(n_recipes, emb_dim) all recipe embeddings (for cold-start).
-        history_weight:   how much to weight user history vs global average in [0,1].
-
-    Returns:
-        user_vec: L2-normalized user preference vector (emb_dim,)
+    Builds candidate pools for meal planning using ML scoring and filtering.
+    
+    Handles:
+    - Data loading and preprocessing
+    - User preference scoring via embeddings
+    - Nutrition fit scoring
+    - Diversity/novelty scoring
+    - Allergen and preference filtering
+    - Final candidate pool generation
     """
-    # Defensive: ensure we have a 2D float array for history
-    history_emb = np.asarray(history_emb, dtype=np.float32)
-
-    # Case 1: no history at all -> pure cold-start
-    if history_emb.size == 0:
-        if global_emb_matrix is None:
-            # Degenerate fallback: zero vector
-            return np.zeros((global_emb_matrix.shape[1] if global_emb_matrix is not None else 0,), dtype=np.float32)
-        return build_cold_start_user_vector(global_emb_matrix)
-
-    # Case 2: very small history (1–2 recipes)
-    # We'll still use it, but blending with cold-start is important
-    # Compute the mean of the history embeddings
-    user_mean = history_emb.mean(axis=0)
-
-    # If we have a global matrix, build a cold-start vector to blend with
-    if global_emb_matrix is not None and history_weight < 1.0:
-        cold_vec = build_cold_start_user_vector(global_emb_matrix)
-        # Blend: history_weight * user_mean + (1 - history_weight) * cold_vec
-        blended = history_weight * user_mean + (1.0 - history_weight) * cold_vec
-    else:
-        # No global matrix or history_weight==1.0 -> just use the history mean
-        blended = user_mean
-
-    # L2-normalize the blended vector
-    norm = np.linalg.norm(blended)
-    if norm == 0:
-        return blended.astype(np.float32)
-
-    return (blended / norm).astype(np.float32)
-
-def compute_preference_scores(emb_matrix: np.ndarray, user_vec: np.ndarray) -> np.ndarray:
-
-    # Make sure user_vec is a 1D float array
-    user_vec = np.asarray(user_vec, dtype=np.float32).reshape(-1)
-
-    # Optionally re-normalize user_vec to unit length (defensive)
-    norm = np.linalg.norm(user_vec)
-    if norm > 0:
-        user_vec = user_vec / norm
-
-    # Compute cosine-like similarity as dot product (rows are recipes)
-    sims = emb_matrix @ user_vec  # shape: (n_recipes,)
-
-    # Reshape to 2D for MinMaxScaler
-    sims_reshaped = sims.reshape(-1, 1)
-
-    # Scale similarities to [0, 1] across this meal
-    scaler = MinMaxScaler(feature_range=(0.0, 1.0))
-    sims_scaled = scaler.fit_transform(sims_reshaped).flatten()
-
-    return sims_scaled
-
-def compute_cluster_novelty(cluster_ids: np.ndarray) -> np.ndarray:
-
-    # Count occurrences of each cluster_id
-    unique, counts = np.unique(cluster_ids, return_counts=True)
-    freq = dict(zip(unique, counts))
-
-    # Inverse frequency: rarer clusters get higher values
-    inv_freq = np.array([1.0 / freq[c] for c in cluster_ids], dtype=np.float32)
-
-    # Scale to [0, 1] so it behaves like a bonus term
-    scaler = MinMaxScaler(feature_range=(0.0, 1.0))
-    novelty_scaled = scaler.fit_transform(inv_freq.reshape(-1, 1)).flatten()
-
-    return novelty_scaled
-
-def apply_diversity_quota(df: pd.DataFrame, pool_size: int) -> pd.DataFrame:
-    max_per_cluster = int(MAX_CLUSTER_FRACTION * pool_size)
-    if max_per_cluster < 1:
-        max_per_cluster = 1
-
-    counts: dict[int, int] = {}
-    selected_rows = []
-
-    for _, row in df.iterrows():
-        cid = int(row["cluster_id"])
-        current = counts.get(cid, 0)
-
-        if current >= max_per_cluster:
-            continue
-
-        selected_rows.append(row)
-        counts[cid] = current + 1
-
-        if len(selected_rows) >= pool_size:
-            break
-
-    if not selected_rows:
-        return df.head(pool_size).reset_index(drop=True)
-
-    result = pd.DataFrame(selected_rows).reset_index(drop=True)
-    return result
-
-def score_and_select_for_meal(df_all: pd.DataFrame, meal_type: str,
-                              per_meal_targets: dict[str, dict[str, float]],
-                              user_data: dict = None,
-) -> pd.DataFrame:
-
-    df_meal = df_all[df_all["meal_type"] == meal_type].copy()
-    if df_meal.empty:
-        raise ValueError(f"No rows found for meal_type={meal_type}")
     
-    # FIX: Standardize calorie column name early
-    if 'calories' in df_meal.columns and 'per_serving_kcal' not in df_meal.columns:
-        df_meal['per_serving_kcal'] = df_meal['calories']
-    elif 'per_serving_kcal' not in df_meal.columns:
-        raise ValueError("Neither 'calories' nor 'per_serving_kcal' column found")
+    def __init__(self, 
+                 config_splits: Dict[str, float] = None,
+                 pool_size: int = 40,
+                 recall_size: int = 200,
+                 recall_window_pct: float = 0.40,
+                 alpha_pref: float = 0.55,
+                 beta_fit: float = 0.35, 
+                 gamma_nov: float = 0.10,
+                 max_cluster_fraction: float = 0.25):
+        """
+        Initialize the candidate pool builder.
+        
+        Args:
+            config_splits: Meal type splits (defaults to config.SPLITS)
+            pool_size: Final number of candidates per meal type
+            recall_size: Intermediate recall pool size before diversity filtering
+            recall_window_pct: Calorie window percentage for recall
+            alpha_pref: Weight for preference scoring
+            beta_fit: Weight for nutrition fit scoring
+            gamma_nov: Weight for novelty/diversity scoring
+            max_cluster_fraction: Max fraction of pool from single cluster
+        """
+        self.splits = config_splits or SPLITS
+        self.pool_size = pool_size
+        self.recall_size = recall_size
+        self.recall_window_pct = recall_window_pct
+        
+        # Scoring weights
+        self.alpha_pref = alpha_pref
+        self.beta_fit = beta_fit
+        self.gamma_nov = gamma_nov
+        
+        # Diversity controls
+        self.max_cluster_fraction = max_cluster_fraction
+        
+        # Compute meal limits from splits
+        self.meal_limits = self._compute_meal_limits()
+        
+        # Will be set when data is loaded
+        self.daily_kcal = None
+        
+    def _compute_meal_limits(self) -> Dict[str, Dict[str, float]]:
+        """Create meal calorie limits from config splits."""
+        meal_limits = {}
+        for meal, split in self.splits.items():
+            margin = 0.05  # ±5% around the config split
+            meal_limits[meal] = {
+                'min': max(0.0, split - margin), 
+                'max': split + margin
+            }
+        return meal_limits
     
-    # FIX: Standardize ID column name early  
-    if 'id' in df_meal.columns and 'recipe_id' not in df_meal.columns:
-        df_meal['recipe_id'] = df_meal['id']
-    elif 'recipe_id' not in df_meal.columns:
-        # Generate synthetic IDs if neither exists
-        df_meal['recipe_id'] = range(len(df_meal))
+    def _get_meal_scoring_targets(self, 
+                                 meal_type: str, 
+                                 per_meal_targets: Dict[str, Dict[str, float]],
+                                 kcal_band_width: float = 0.20,
+                                 kcal_window_extra: float = 0.40) -> Dict[str, float]:
+        """Get scoring targets for a specific meal type."""
+        target_info = per_meal_targets[meal_type]
+        target_kcal = float(target_info["calories"])
+        protein_target = float(target_info["protein_g"])
 
-    # Apply filtering
-    if user_data:
+        # Compute ideal kcal band around target
+        half_band_width = target_kcal * (kcal_band_width / 2.0)
+        kcal_low = target_kcal - half_band_width
+        kcal_high = target_kcal + half_band_width
+
+        # Compute wider recall window
+        window_low = kcal_low * (1.0 - kcal_window_extra)
+        window_high = kcal_high * (1.0 + kcal_window_extra)
+
+        return {
+            "kcal_low": kcal_low,
+            "kcal_high": kcal_high,
+            "window_low": window_low,
+            "window_high": window_high,
+            "protein_target": protein_target,
+        }
+    
+    def _compute_nutrition_fit(self, 
+                              row: pd.Series, 
+                              kcal_low: float, 
+                              kcal_high: float, 
+                              window_low: float,
+                              window_high: float, 
+                              protein_target: float, 
+                              protein_tol: float = 0.20) -> float:
+        """Compute nutrition fitness score for a recipe."""
+        cal = row['per_serving_kcal']
+        protein = row['protein_g']
+
+        # Calorie scoring
+        if cal < window_low or cal > window_high:
+            kcal_score = 0.0
+        else:
+            if kcal_low <= cal <= kcal_high:
+                kcal_score = 1.0
+            elif cal < kcal_low:
+                denom = max(1e-6, kcal_low - window_low)
+                kcal_score = 1.0 - (kcal_low - cal) / denom
+            else:  # cal > kcal_high
+                denom = max(1e-6, window_high - kcal_high)
+                kcal_score = 1.0 - (cal - kcal_high) / denom
+            kcal_score = max(0.0, min(1.0, float(kcal_score)))
+        
+        # Protein scoring
+        tol = protein_tol * protein_target
+        max_error = 3.0 * tol
+        error = abs(protein - protein_target)
+
+        if error <= tol:
+            protein_score = 1.0
+        elif error >= max_error:
+            protein_score = 0.0
+        else:
+            protein_score = 1.0 - (error - tol) / (max_error - tol)
+        protein_score = max(0.0, min(1.0, float(protein_score)))
+
+        # Combined fit score
+        fit = 0.7 * kcal_score + 0.3 * protein_score
+        return max(0.0, min(1.0, float(fit)))
+    
+    def _build_cold_start_user_vector(self, emb_matrix: np.ndarray) -> np.ndarray:
+        """Build initial user preference vector from recipe embeddings."""
+        mean_vec = emb_matrix.mean(axis=0)
+        norm = np.linalg.norm(mean_vec)
+        if norm == 0:
+            return mean_vec
+        return mean_vec / norm
+    
+    def _compute_preference_scores(self, emb_matrix: np.ndarray, user_vec: np.ndarray) -> np.ndarray:
+        """Compute preference scores using embeddings and user vector."""
+        user_vec = np.asarray(user_vec, dtype=np.float32).reshape(-1)
+        norm = np.linalg.norm(user_vec)
+        if norm > 0:
+            user_vec = user_vec / norm
+
+        sims = emb_matrix @ user_vec
+        sims_reshaped = sims.reshape(-1, 1)
+        scaler = MinMaxScaler(feature_range=(0.0, 1.0))
+        sims_scaled = scaler.fit_transform(sims_reshaped).flatten()
+        return sims_scaled
+    
+    def _compute_cluster_novelty(self, cluster_ids: np.ndarray) -> np.ndarray:
+        """Compute novelty scores based on cluster rarity."""
+        unique, counts = np.unique(cluster_ids, return_counts=True)
+        freq = dict(zip(unique, counts))
+        inv_freq = np.array([1.0 / freq[c] for c in cluster_ids], dtype=np.float32)
+        scaler = MinMaxScaler(feature_range=(0.0, 1.0))
+        novelty_scaled = scaler.fit_transform(inv_freq.reshape(-1, 1)).flatten()
+        return novelty_scaled
+    
+    def _apply_diversity_quota(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply diversity constraints to prevent cluster domination."""
+        max_per_cluster = int(self.max_cluster_fraction * self.pool_size)
+        if max_per_cluster < 1:
+            max_per_cluster = 1
+
+        counts = {}
+        selected_rows = []
+
+        for _, row in df.iterrows():
+            cid = int(row["cluster_id"])
+            current = counts.get(cid, 0)
+
+            if current >= max_per_cluster:
+                continue
+
+            selected_rows.append(row)
+            counts[cid] = current + 1
+
+            if len(selected_rows) >= self.pool_size:
+                break
+
+        if not selected_rows:
+            return df.head(self.pool_size).reset_index(drop=True)
+
+        return pd.DataFrame(selected_rows).reset_index(drop=True)
+    
+    def _apply_user_filtering(self, df_meal: pd.DataFrame, user_data: Dict) -> pd.DataFrame:
+        """Apply allergen and preference filtering."""
+        if not user_data:
+            return df_meal
+            
         allergies = user_data.get('allergies', [])
         preferences = user_data.get('preferences', [])
         exclude_terms = allergies + preferences
         
-        if exclude_terms:
-            pattern = '|'.join([str(term).lower() for term in exclude_terms])
-            name_col = 'name' if 'name' in df_meal.columns else 'food_name'
-            if name_col in df_meal.columns:
-                original_count = len(df_meal)
-                df_meal = df_meal[~df_meal[name_col].str.lower().str.contains(pattern, case=False, na=False, regex=True)]
-                removed_count = original_count - len(df_meal)
-                if removed_count > 0:
-                    print(f"  Filtered out {removed_count} recipes due to allergies/preferences")
+        if not exclude_terms:
+            return df_meal
             
-            if df_meal.empty:
-                raise ValueError(f"No recipes available for {meal_type} after filtering")
-
-    # Extract embeddings
-    emb_cols = [c for c in df_meal.columns if c.startswith("emb_")]
-    X_emb = df_meal[emb_cols].values.astype(np.float32)
-
-    # Build user vector and preference scores
-    user_vec = build_cold_start_user_vector(X_emb)
-    pref_scores = compute_preference_scores(X_emb, user_vec)
-    df_meal["preference_score"] = pref_scores
-
-    # Get scoring targets
-    targets = get_meal_scoring_targets(meal_type=meal_type, per_meal_targets=per_meal_targets)
-
-    # Compute nutrition fit
-    df_meal["nutrition_fit"] = df_meal.apply(
-        lambda row: nutrition_fit(
-            row,
-            kcal_low=targets["kcal_low"],
-            kcal_high=targets["kcal_high"], 
-            window_low=targets["window_low"],
-            window_high=targets["window_high"],
-            protein_target=targets["protein_target"],
-        ),
-        axis=1,
-    )
-
-    # Novelty scores
-    cluster_ids = df_meal["cluster_id"].values.astype(np.int32)
-    novelty_scores = compute_cluster_novelty(cluster_ids)
-    df_meal["novelty_bonus"] = novelty_scores
-
-    # Final scoring
-    df_meal["model_score"] = (
-        ALPHA_PREF * df_meal["preference_score"]
-        + BETA_FIT * df_meal["nutrition_fit"] 
-        + GAMMA_NOV * df_meal["novelty_bonus"]
-    )
-    df_meal["final_model_score"] = df_meal["model_score"].clip(lower=0.0, upper=1.0)
-
-    # Apply recall window
-    window_low = targets["window_low"]
-    window_high = targets["window_high"]
-    
-    df_recall = df_meal[
-        (df_meal["per_serving_kcal"] >= window_low) &
-        (df_meal["per_serving_kcal"] <= window_high)
-    ].copy()
-
-    if len(df_recall) < RECALL_SIZE:
-        df_recall = df_meal.copy()
-
-    # Sort and trim
-    df_recall = df_recall.sort_values(
-        by=["final_model_score", "nutrition_fit", "novelty_bonus", "preference_score", "recipe_id"],
-        ascending=[False, False, False, False, True],
-    ).head(RECALL_SIZE).reset_index(drop=True)
-
-    # Apply diversity
-    df_pool = apply_diversity_quota(df_recall, POOL_SIZE)
-
-    # Add required fields for GetMeals
-    df_pool["meal_slot"] = meal_type
-    if "primary_protein" not in df_pool.columns:
-        df_pool["primary_protein"] = "unknown"
-    if "cuisine" not in df_pool.columns:
-        df_pool["cuisine"] = "unknown"
-
-    # Ensure both column names exist for compatibility
-    if 'per_serving_kcal' in df_pool.columns:
-        df_pool['calories'] = df_pool['per_serving_kcal']
-    if 'recipe_id' in df_pool.columns:
-        df_pool['id'] = df_pool['recipe_id']
-
-    return df_pool.reset_index(drop=True)
-
-def build_all_candidate_pools(daily_targets: dict[str, float] | tuple, 
-                             user_data: dict = None) -> dict[str, pd.DataFrame]:
-    
-    # Convert tuple to dict if needed
-    if isinstance(daily_targets, tuple):
-        calories, protein_g, fat_g, carb_g = daily_targets
-        daily_targets_dict = {
-            'calories': calories,
-            'protein_g': protein_g, 
-            'fat_g': fat_g,
-            'carb_g': carb_g
-        }
-    else:
-        daily_targets_dict = daily_targets
-    
-    # Load processed parquet file with ALL required ML features
-    data_path = Path(__file__).parent.parent.parent / "data" / "processed" / "all_meals_clean.parquet"
-    
-    if not data_path.exists():
-        raise FileNotFoundError(f"Processed data file not found: {data_path}")
-    
-    # Load the full processed dataset
-    df_all = pd.read_parquet(data_path)
-    print(f"Loaded {len(df_all)} recipes from {data_path}")
-    
-    # Add required columns for ML scoring if missing
-    if 'cluster_id' not in df_all.columns:
-        # Generate synthetic cluster IDs for diversity
-        df_all['cluster_id'] = np.random.randint(0, 10, len(df_all))
+        pattern = '|'.join([str(term).lower() for term in exclude_terms])
+        name_col = 'name' if 'name' in df_meal.columns else 'food_name'
         
-    # Add dummy embeddings if missing (for cold start user vector)
-    emb_cols = [c for c in df_all.columns if c.startswith("emb_")]
-    if len(emb_cols) == 0:
-        print("Adding synthetic embeddings for ML scoring...")
-        for i in range(50):  # 50-dimensional embeddings
-            df_all[f'emb_{i}'] = np.random.normal(0, 1, len(df_all))
-    
-    # Standardize column names
-    if 'id' in df_all.columns and 'recipe_id' not in df_all.columns:
-        df_all['recipe_id'] = df_all['id']
-    elif 'recipe_id' not in df_all.columns:
-        df_all['recipe_id'] = range(len(df_all))
-    
-    perMeal = mealTargets(daily_targets_dict, SPLITS)
-    outputs: dict[str, pd.DataFrame] = {}
-
-    for meal_type in SPLITS.keys():
-        print(f"\n=== Building candidates for {meal_type} ===")
+        if name_col in df_meal.columns:
+            original_count = len(df_meal)
+            df_meal = df_meal[~df_meal[name_col].str.lower().str.contains(
+                pattern, case=False, na=False, regex=True)]
+            removed_count = original_count - len(df_meal)
+            if removed_count > 0:
+                print(f"  Filtered out {removed_count} recipes due to allergies/preferences")
         
-        # Get scored candidates
-        df_scored = score_and_select_for_meal(
-            df_all=df_all,
-            meal_type=meal_type, 
-            per_meal_targets=perMeal,
-            user_data=user_data,
+        if df_meal.empty:
+            raise ValueError(f"No recipes available after filtering")
+            
+        return df_meal
+    
+    def _standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Standardize column names for compatibility."""
+        df = df.copy()
+        
+        # Calorie column standardization
+        if 'calories' in df.columns and 'per_serving_kcal' not in df.columns:
+            df['per_serving_kcal'] = df['calories']
+        elif 'per_serving_kcal' not in df.columns:
+            raise ValueError("Neither 'calories' nor 'per_serving_kcal' column found")
+        
+        # ID column standardization
+        if 'id' in df.columns and 'recipe_id' not in df.columns:
+            df['recipe_id'] = df['id']
+        elif 'recipe_id' not in df.columns:
+            df['recipe_id'] = range(len(df))
+            
+        # Ensure both formats exist for GetMeals compatibility
+        if 'per_serving_kcal' in df.columns:
+            df['calories'] = df['per_serving_kcal']
+        if 'recipe_id' in df.columns:
+            df['id'] = df['recipe_id']
+            
+        return df
+    
+    def _load_data(self) -> pd.DataFrame:
+        """Load and preprocess the meal data."""
+        data_path = Path(__file__).parent.parent.parent / "data" / "processed" / "all_meals_clean.parquet"
+        
+        if not data_path.exists():
+            raise FileNotFoundError(f"Processed data file not found: {data_path}")
+        
+        df_all = pd.read_parquet(data_path)
+        print(f"Loaded {len(df_all)} recipes from {data_path}")
+        
+        # Add required columns for ML scoring if missing
+        if 'cluster_id' not in df_all.columns:
+            df_all['cluster_id'] = np.random.randint(0, 10, len(df_all))
+            
+        # Add dummy embeddings if missing
+        emb_cols = [c for c in df_all.columns if c.startswith("emb_")]
+        if len(emb_cols) == 0:
+            print("Adding synthetic embeddings for ML scoring...")
+            for i in range(50):
+                df_all[f'emb_{i}'] = np.random.normal(0, 1, len(df_all))
+        
+        return self._standardize_columns(df_all)
+    
+    def score_meal_candidates(self, 
+                             df_all: pd.DataFrame, 
+                             meal_type: str,
+                             per_meal_targets: Dict[str, Dict[str, float]], 
+                             user_data: Optional[Dict] = None) -> pd.DataFrame:
+        """Score and select candidates for a specific meal type."""
+        
+        # Filter to meal type
+        df_meal = df_all[df_all["meal_type"] == meal_type].copy()
+        if df_meal.empty:
+            raise ValueError(f"No rows found for meal_type={meal_type}")
+        
+        # Apply user filtering
+        df_meal = self._apply_user_filtering(df_meal, user_data or {})
+        
+        # Extract embeddings
+        emb_cols = [c for c in df_meal.columns if c.startswith("emb_")]
+        X_emb = df_meal[emb_cols].values.astype(np.float32)
+
+        # Build user vector and preference scores
+        user_vec = self._build_cold_start_user_vector(X_emb)
+        pref_scores = self._compute_preference_scores(X_emb, user_vec)
+        df_meal["preference_score"] = pref_scores
+
+        # Get scoring targets
+        targets = self._get_meal_scoring_targets(meal_type, per_meal_targets)
+
+        # Compute nutrition fit
+        df_meal["nutrition_fit"] = df_meal.apply(
+            lambda row: self._compute_nutrition_fit(
+                row,
+                kcal_low=targets["kcal_low"],
+                kcal_high=targets["kcal_high"], 
+                window_low=targets["window_low"],
+                window_high=targets["window_high"],
+                protein_target=targets["protein_target"],
+            ),
+            axis=1,
         )
-        
-        # The scored data already has all original columns!
-        # Just standardize column names for GetMeals
-        df_final = df_scored.copy()
-        
-        if 'per_serving_kcal' in df_final.columns:
-            df_final['calories'] = df_final['per_serving_kcal']
-        if 'recipe_id' not in df_final.columns and 'id' in df_final.columns:
-            df_final['recipe_id'] = df_final['id']
-        elif 'id' not in df_final.columns and 'recipe_id' in df_final.columns:
-            df_final['id'] = df_final['recipe_id']
-            
-        outputs[meal_type] = df_final
-        print(f"Built {len(df_final)} candidates for {meal_type}")
 
-    return outputs
+        # Novelty scores
+        cluster_ids = df_meal["cluster_id"].values.astype(np.int32)
+        novelty_scores = self._compute_cluster_novelty(cluster_ids)
+        df_meal["novelty_bonus"] = novelty_scores
+
+        # Final scoring
+        df_meal["model_score"] = (
+            self.alpha_pref * df_meal["preference_score"]
+            + self.beta_fit * df_meal["nutrition_fit"] 
+            + self.gamma_nov * df_meal["novelty_bonus"]
+        )
+        df_meal["final_model_score"] = df_meal["model_score"].clip(lower=0.0, upper=1.0)
+
+        # Apply recall window
+        window_low = targets["window_low"]
+        window_high = targets["window_high"]
+        
+        df_recall = df_meal[
+            (df_meal["per_serving_kcal"] >= window_low) &
+            (df_meal["per_serving_kcal"] <= window_high)
+        ].copy()
+
+        if len(df_recall) < self.recall_size:
+            df_recall = df_meal.copy()
+
+        # Sort and trim
+        df_recall = df_recall.sort_values(
+            by=["final_model_score", "nutrition_fit", "novelty_bonus", "preference_score", "recipe_id"],
+            ascending=[False, False, False, False, True],
+        ).head(self.recall_size).reset_index(drop=True)
+
+        # Apply diversity
+        df_pool = self._apply_diversity_quota(df_recall)
+
+        # Add required fields for GetMeals
+        df_pool["meal_slot"] = meal_type
+        if "primary_protein" not in df_pool.columns:
+            df_pool["primary_protein"] = "unknown"
+        if "cuisine" not in df_pool.columns:
+            df_pool["cuisine"] = "unknown"
+
+        return df_pool.reset_index(drop=True)
+    
+    def build_pools(self, 
+                   daily_targets: Union[Dict[str, float], Tuple[float, float, float, float]], 
+                   user_data: Optional[Dict] = None) -> Dict[str, pd.DataFrame]:
+        """
+        Build candidate pools for all meal types.
+        
+        Args:
+            daily_targets: Either dict with nutrition targets or tuple (calories, protein_g, fat_g, carb_g)
+            user_data: User profile data including allergies and preferences
+            
+        Returns:
+            Dictionary mapping meal types to candidate DataFrames
+        """
+        
+        # Convert tuple to dict if needed
+        if isinstance(daily_targets, tuple):
+            calories, protein_g, fat_g, carb_g = daily_targets
+            daily_targets_dict = {
+                'calories': calories,
+                'protein_g': protein_g, 
+                'fat_g': fat_g,
+                'carb_g': carb_g
+            }
+        else:
+            daily_targets_dict = daily_targets
+        
+        # Load data
+        df_all = self._load_data()
+        
+        # Calculate per-meal targets
+        per_meal = mealTargets(daily_targets_dict, self.splits)
+        outputs = {}
+
+        for meal_type in self.splits.keys():
+            print(f"\n=== Building candidates for {meal_type} ===")
+            
+            try:
+                df_candidates = self.score_meal_candidates(
+                    df_all=df_all,
+                    meal_type=meal_type, 
+                    per_meal_targets=per_meal,
+                    user_data=user_data,
+                )
+                
+                outputs[meal_type] = df_candidates
+                print(f"Built {len(df_candidates)} candidates for {meal_type}")
+                
+            except ValueError as e:
+                print(f"Warning: {e}")
+                # Create empty DataFrame for this meal type
+                outputs[meal_type] = pd.DataFrame()
+
+        return outputs
+
+
+# Backwards compatibility functions
+def build_all_candidate_pools(daily_targets: Union[Dict[str, float], Tuple], 
+                             user_data: Dict = None) -> Dict[str, pd.DataFrame]:
+    """Backwards compatibility wrapper for the original function."""
+    builder = CandidatePoolBuilder()
+    return builder.build_pools(daily_targets, user_data)
+
+
+def score_and_select_for_meal(df_all: pd.DataFrame, meal_type: str,
+                              per_meal_targets: Dict[str, Dict[str, float]],
+                              user_data: Dict = None) -> pd.DataFrame:
+    """Backwards compatibility wrapper for the original function."""
+    builder = CandidatePoolBuilder()
+    return builder.score_meal_candidates(df_all, meal_type, per_meal_targets, user_data)
