@@ -13,6 +13,9 @@ class GetMeals:
         script_dir = Path(__file__).parent
         self.data_dir = script_dir.parent.parent / "data" / "raw" / "by_meal_type"
         
+        # Track used recipes to avoid repetition
+        self.used_recipes = set()
+        
         # Use provided DataFrames or load default ones
         if breakfast_df is not None and lunch_df is not None and dinner_df is not None and snacks_df is not None:
             # Use pre-filtered DataFrames
@@ -70,8 +73,16 @@ class GetMeals:
     
     def create_meal_plan(self, user_data: Dict) -> Dict:
         """Create complete meal plan from user data."""
-        # Get targets from ML model
-        nutrition_targets = getUserTarget(user_data)
+        # Get targets from ML model (returns tuple)
+        nutrition_targets_tuple = getUserTarget(user_data)
+        
+        # Convert tuple to dictionary for easier access
+        nutrition_targets = {
+            'calories': nutrition_targets_tuple[0],
+            'protein_g': nutrition_targets_tuple[1],
+            'fat_g': nutrition_targets_tuple[2],
+            'carb_g': nutrition_targets_tuple[3]
+        }
         
         # Calculate meal targets
         meal_targets = {}
@@ -156,8 +167,24 @@ class GetMeals:
         candidates['protein_target_score'] = 1 / (1 + abs(candidates['protein_g'] - target_protein))
         candidates['meal_score'] = (candidates['protein_efficiency'] * 0.7) + (candidates['protein_target_score'] * 0.3)
         
-        # Select best option
-        selected = candidates.loc[candidates['meal_score'].idxmax()]
+        # Filter out previously used recipes for variety
+        available_candidates = candidates[~candidates['id'].isin(self.used_recipes)]
+        
+        # If all candidates have been used, allow reuse but prefer unused ones
+        if available_candidates.empty:
+            available_candidates = candidates
+        
+        # Sort by score and pick from top options to introduce variety
+        available_candidates = available_candidates.sort_values('meal_score', ascending=False)
+        
+        # Select from top 5 options to add variety while maintaining quality
+        top_candidates = available_candidates.head(5)
+        
+        # Pick the first available option (best score among unused)
+        selected = top_candidates.iloc[0]
+        
+        # Track this recipe as used
+        self.used_recipes.add(selected['id'])
         
         print(f"{meal_type.title()}: {selected['name']} ({selected['calories']} cal, {selected['protein_g']:.1f}g protein)")
         

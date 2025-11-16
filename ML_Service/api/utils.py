@@ -37,14 +37,37 @@ def filterFoods(user, path):
     
     return filtered_df.reset_index(drop=True)
 
-def mealTargets(daily_targets: dict, splits: dict[str, float]) -> dict[str, dict[str, float]]:
+def mealTargets(daily_targets: dict | tuple, splits: dict[str, float]) -> dict[str, dict[str, float]]:
+    """
+    Split daily nutrition targets across meals based on percentage splits.
+    
+    Args:
+        daily_targets: Either a dict {'calories': X, 'protein_g': Y, ...} 
+                      or a tuple (calories, protein_g, fat_g, carb_g) from getUserTarget
+        splits: Dict mapping meal names to percentage splits
+        
+    Returns:
+        Dict mapping meal names to their nutrition targets
+    """
+    # Handle tuple format (from getUserTarget)
+    if isinstance(daily_targets, tuple):
+        calories, protein_g, fat_g, carb_g = daily_targets
+        daily_targets_dict = {
+            'calories': calories,
+            'protein_g': protein_g,
+            'fat_g': fat_g,
+            'carb_g': carb_g
+        }
+    else:
+        daily_targets_dict = daily_targets
+    
     out: dict[str, dict[str, float]] = {}
 
     # loop through each split percentage and store the total cals then go through the macros
     for meal, i in splits.items():
-        out[meal] = {'calories': i * daily_targets['calories']}
+        out[meal] = {'calories': i * daily_targets_dict['calories']}
 
         for j in ('protein_g','carb_g','fat_g'):
-            out[meal][j] = i * daily_targets[j]
+            out[meal][j] = i * daily_targets_dict[j]
 
     return out

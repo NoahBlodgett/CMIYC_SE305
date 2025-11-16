@@ -2,9 +2,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
 import sys
+import pandas as pd
 from pathlib import Path
 from api.services.ml_models.nutritionRanker import getUserTarget
 from api.utils import filterFoods
+from src.models.create_candidates import build_all_candidate_pools
+from src.models.meal_planning import weekly_greedy_meal_selection
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parents[2]))
@@ -42,16 +45,37 @@ async def generate(user: UserData):
         # Convert Pydantic model to dict
         user_dict = user.dict()
         
-        # Get nutrition targets from ML model
-        nutrition_targets = getUserTarget(user_dict)
+        # Get nutrition targets from ML model (returns tuple)
+        nutrition_targets_tuple = getUserTarget(user_dict)
         
-        # Filter foods based on allergies/preferences
-        filtered_foods = filterFoods(user_dict, path="../../data/raw/by_meal_type/staples.csv")
+        # Convert tuple to dict for all downstream functions
+        nutrition_targets_dict = {
+            'calories': nutrition_targets_tuple[0],
+            'protein_g': nutrition_targets_tuple[1],
+            'fat_g': nutrition_targets_tuple[2],
+            'carb_g': nutrition_targets_tuple[3]
+        }
         
+        # Pass user_dict instead of user object
+        candidates = build_all_candidate_pools(
+            daily_targets=nutrition_targets_tuple,  # build_all_candidate_pools can handle tuple
+            user_data=user_dict  # Pass dict, not Pydantic object
+        )
+
+        week_plan, ingredient_counts = weekly_greedy_meal_selection(user_dict, candidates)
+
+        # ADD RETURN STATEMENT
         return {
-            "nutrition_targets": nutrition_targets,
-            "available_foods_count": len(filtered_foods),
-            "foods_preview": filtered_foods.head(10).to_dict('records')
+            "success": True,
+            "nutrition_targets": nutrition_targets_dict,
+            "week_plan": week_plan,
+            "ingredient_counts": ingredient_counts,
+            "candidate_stats": {
+                "breakfast_count": len(candidates.get('breakfast', [])),
+                "lunch_count": len(candidates.get('lunch', [])),
+                "dinner_count": len(candidates.get('dinner', [])),
+                "snack_count": len(candidates.get('snack', []))  # Note: 'snack' not 'snacks'
+            }
         }
     
     except ValueError as e:
