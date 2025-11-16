@@ -71,13 +71,21 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-33
+
       - name: Run integration tests
         uses: reactivecircus/android-emulator-runner@v2.30.1
         with:
           api-level: 33
           arch: x86_64
           target: google_apis
-          force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: cd frontend/cache_me_if_you_can && flutter test integration_test/ --timeout=2m
