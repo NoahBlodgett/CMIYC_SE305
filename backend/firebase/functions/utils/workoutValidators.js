@@ -5,7 +5,7 @@ function isValidUserID(userId)
 {
     const finalTruth = true;
 
-    const isValidLength = (length(userId) > 0 && length(userId) <= 16);
+    const isValidLength = (userId.length > 0 && userId.length <= 16);
 
     if(!isValidLength)
         finalTruth = false;
@@ -18,7 +18,7 @@ function isValidDuration(duration)
     return duration > 0;
 }
 
-function isvalidcalsburned(calsBurned)
+function isValidCalsBurned(calsBurned)
 {
     // calsBurned should be a positive number
     return calsBurned > 0;
@@ -56,13 +56,13 @@ function isValidDate(date)
     return true;   
 }
 
-function isvalidweightlifted(weightLifted) 
+function isValidWeightLifted(weightLifted) 
 {
     // weightLifted should be a positive number
     return weightLifted > 0;
 }
 
-function isvalidmovement(movement) 
+function isValidMovement(movement) 
 {
     // First check if it's an instance of Movement class
     if (!(movement instanceof Movement)) 
