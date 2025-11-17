@@ -5,8 +5,6 @@
 
 # Processed data files (ML models output)
 *.parquet
-*.pkl
-*.joblib
 ML_Service/data/processed/
 ML_Service/data/interim/
 

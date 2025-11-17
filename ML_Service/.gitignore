@@ -64,11 +64,6 @@ coverage.xml
 # Logs
 *.log
 
-# ML Models (if large)
-# *.joblib
-# *.pkl
-# *.h5
-
 # Temporary files
 *.tmp
 *.temp
