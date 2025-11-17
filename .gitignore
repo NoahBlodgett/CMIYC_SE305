@@ -1,10 +1,8 @@
 # Large data files
-*.csv
-!staples.csv
-!nutrition.csv
+#*.csv
 
 # Processed data files (ML models output)
-*.parquet
+#*.parquet
 ML_Service/data/processed/
 ML_Service/data/interim/
 
