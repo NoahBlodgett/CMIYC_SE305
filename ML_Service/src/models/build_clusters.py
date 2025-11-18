@@ -5,14 +5,14 @@ from sklearn.cluster import MiniBatchKMeans
 
 
 def build_clusters(
-    inputPath: str = "../data/features/all_meals_embeddings.parquet",
-    outputPath: str = "../data/features/all_meals_with_clusters.parquet",
+    inputPath: str = "ML_Service/data/processed/all_meals_embeddings.parquet",
+    outputPath: str = "ML_Service/data/processed/all_meals_with_clusters.parquet",
     k: int = 32):
     
     df = pd.read_parquet(inputPath)
 
     # grab the embedding columns and load it into a numpy array
-    emb_cols = [col for col in df.columns if col.startswith("emb_")]
+    emb_cols = [col for col in df.columns if col.startswith("emb")]
     X = df[emb_cols].values.astype(np.float32)
 
 
@@ -32,3 +32,6 @@ def build_clusters(
     print(cluster_counts)
 
     df.to_parquet(outputPath, index=False)
+
+if __name__ == "__main__":
+    build_clusters()

@@ -4,8 +4,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 from sklearn.preprocessing import Normalizer
 
-def buildEmbeddings( inputPath: str = "../../data/processed/all_meals_clean.parquet", 
-                     outputPath: str = "../../data/processed/all_meals_embeddings.parquet"):
+def buildEmbeddings( inputPath: str = "ML_Service/data/processed/all_meals_clean.parquet", 
+                     outputPath: str = "ML_Service/data/processed/all_meals_embeddings.parquet"):
     
     df = pd.read_parquet(inputPath)
     print('loaded data:', df.shape)
@@ -56,6 +56,9 @@ def buildEmbeddings( inputPath: str = "../../data/processed/all_meals_clean.parq
 
     out_df.to_parquet(outputPath, index=False)
     print(f"Saved embeddings to {outputPath}")
+
+if __name__ == "__main__":
+    buildEmbeddings()
 
 
 

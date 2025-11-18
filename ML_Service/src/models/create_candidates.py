@@ -245,24 +245,13 @@ class CandidatePoolBuilder:
     
     def _load_data(self) -> pd.DataFrame:
         """Load and preprocess the meal data."""
-        data_path = Path(__file__).parent.parent.parent / "data" / "processed" / "all_meals_clean.parquet"
+        data_path = Path(__file__).parent.parent.parent / "data" / "processed" / "all_meals_with_clusters.parquet"
         
         if not data_path.exists():
             raise FileNotFoundError(f"Processed data file not found: {data_path}")
         
         df_all = pd.read_parquet(data_path)
         print(f"Loaded {len(df_all)} recipes from {data_path}")
-        
-        # Add required columns for ML scoring if missing
-        if 'cluster_id' not in df_all.columns:
-            df_all['cluster_id'] = np.random.randint(0, 10, len(df_all))
-            
-        # Add dummy embeddings if missing
-        emb_cols = [c for c in df_all.columns if c.startswith("emb_")]
-        if len(emb_cols) == 0:
-            print("Adding synthetic embeddings for ML scoring...")
-            for i in range(50):
-                df_all[f'emb_{i}'] = np.random.normal(0, 1, len(df_all))
         
         return self._standardize_columns(df_all)
     

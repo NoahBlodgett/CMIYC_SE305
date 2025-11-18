@@ -3,7 +3,7 @@
 
 # Processed data files (ML models output)
 #*.parquet
-ML_Service/data/processed/
+#ML_Service/data/processed/
 ML_Service/data/interim/
 
 # Data processing scripts (one-time ETL, not business logic)
