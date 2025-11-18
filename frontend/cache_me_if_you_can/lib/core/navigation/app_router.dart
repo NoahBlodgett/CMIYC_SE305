@@ -98,12 +98,18 @@ class AppRouter {
   /// Determine the initial route based on auth state and onboarding completion.
   /// Returns one of login, onboarding, or home.
   Future<String> resolveInitialRoute() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return Routes.login;
-    // Minimal heuristic: if displayName is empty OR a Firestore flag is false, send to onboarding.
-    // (Extend by checking Firestore doc if needed.)
-    final dn = user.displayName?.trim();
-    if (dn == null || dn.isEmpty) return Routes.onboarding;
-    return Routes.home;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return Routes.login;
+      // Minimal heuristic: if displayName is empty OR a Firestore flag is false, send to onboarding.
+      // (Extend by checking Firestore doc if needed.)
+      final dn = user.displayName?.trim();
+      if (dn == null || dn.isEmpty) return Routes.onboarding;
+      return Routes.home;
+    } catch (_) {
+      // If Firebase isn't initialized in this environment (tests, new installs),
+      // default to login instead of throwing.
+      return Routes.login;
+    }
   }
 }

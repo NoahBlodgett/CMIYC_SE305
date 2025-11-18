@@ -172,8 +172,23 @@ class SettingsPage extends StatelessWidget {
                     final nav = Navigator.of(context);
                     try {
                       await FirebaseAuth.instance.signOut();
+                    } catch (e) {
+                      if (kDebugMode) {
+                        debugPrint('Sign out error: $e');
+                      }
                     } finally {
-                      nav.popUntil((route) => route.isFirst);
+                      // Ensure we land on the login screen and clear history
+                      // so back button doesn't return to authenticated pages.
+                      if (nav.canPop()) {
+                        // Remove all routes and push login
+                        nav.pushNamedAndRemoveUntil(
+                          Routes.login,
+                          (route) => false,
+                        );
+                      } else {
+                        // If no stack, still route to login
+                        nav.pushReplacementNamed(Routes.login);
+                      }
                     }
                   },
                 ),

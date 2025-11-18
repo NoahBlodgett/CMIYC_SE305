@@ -200,20 +200,30 @@ class MyApp extends StatelessWidget {
     return FutureBuilder<String>(
       future: router.resolveInitialRoute(),
       builder: (context, snap) {
-        final initial = snap.data;
+        if (snap.connectionState != ConnectionState.done) {
+          // While resolving, show a lightweight splash instead of defaulting to '/'
+          // which maps to Home and can expose the app before auth.
+          return MaterialApp(
+            title: 'Momentum',
+            theme: AppTheme.lightTheme,
+            debugShowCheckedModeBanner: false,
+            home: const _SplashScreen(),
+            onGenerateRoute: router.onGenerateRoute,
+          );
+        }
+
+        final initial = snap.data ?? Routes.login;
         assert(() {
-          if (snap.connectionState == ConnectionState.done) {
-            debugPrint(
-              '[StartupTrace] Initial route resolved to "$initial" at ${DateTime.now()}',
-            );
-          }
+          debugPrint(
+            '[StartupTrace] Initial route resolved to "${initial}" at ${DateTime.now()}',
+          );
           return true;
         }());
         return MaterialApp(
           title: 'Momentum',
           theme: AppTheme.lightTheme,
           debugShowCheckedModeBanner: false,
-          initialRoute: initial ?? Routes.root,
+          initialRoute: initial,
           onGenerateRoute: router.onGenerateRoute,
         );
       },
@@ -221,3 +231,27 @@ class MyApp extends StatelessWidget {
   }
 }
 // HomePage lives in features/home; routing handled by AppRouter.
+
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            SizedBox(height: 12),
+            Text('Loading…'),
+          ],
+        ),
+      ),
+    );
+  }
+}
