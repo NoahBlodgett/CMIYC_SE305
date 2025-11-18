@@ -83,6 +83,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(newProgramName), findsOneWidget);
+
+      // Ensure no lingering focus changes after test completes
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('Select program from recent programs list', (
@@ -120,6 +124,9 @@ void main() {
 
       // Verify it was set as active
       expect(mockdata.mockCurrentProgramName, 'Beginner Full Body');
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('Empty name defaults to "Custom Program"', (
@@ -137,6 +144,9 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('activeProgramName'), 'Custom Program');
       expect(mockdata.mockCurrentProgramName, 'Custom Program');
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
     });
   });
 }

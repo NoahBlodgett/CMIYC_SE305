@@ -107,6 +107,10 @@ void main() {
 
       expect(find.text('AI Generated Program'), findsOneWidget);
       expect(find.text('My Manual Workout'), findsOneWidget);
+
+      // Ensure no lingering focus changes after test completes
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('Navigate between pages without losing state', (
@@ -156,6 +160,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ListTile), findsNWidgets(3));
+
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
     });
   });
 }

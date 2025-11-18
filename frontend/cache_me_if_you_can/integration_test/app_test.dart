@@ -50,5 +50,9 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('activeProgramName'), entered);
     expect(mockdata.mockCurrentProgramName, entered);
+
+    // Ensure no lingering focus changes after test completes
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
   });
 }
