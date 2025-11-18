@@ -94,13 +94,12 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            cd frontend/cache_me_if_you_can
             # Clean project to reduce disk usage before build
-            flutter clean
-            rm -rf build .dart_tool
-            flutter pub get
+            cd frontend/cache_me_if_you_can && flutter clean
+            cd frontend/cache_me_if_you_can && rm -rf build .dart_tool
+            cd frontend/cache_me_if_you_can && flutter pub get
             # Run a representative integration test to keep CI lightweight
-            flutter test integration_test/workout_flow_test.dart --timeout=3m
+            cd frontend/cache_me_if_you_can && flutter test integration_test/workout_flow_test.dart --timeout=3m
 
   build_android:
     name: Build Android (APK)
