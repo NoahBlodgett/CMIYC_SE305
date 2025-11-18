@@ -308,8 +308,12 @@ class _ProgressWidgetState extends State<ProgressWidget>
       width: size,
       height: size,
       child: AnimatedBuilder(
-        animation: _waveCtrl!,
-        builder: (context, child) => painted(_waveCtrl!.value * 2 * math.pi),
+        animation: _waveCtrl ?? AlwaysStoppedAnimation<double>(0.0),
+        builder: (context, child) {
+          final ctrl = _waveCtrl;
+          final phase = ctrl != null ? ctrl.value * 2 * math.pi : 0.0;
+          return painted(phase);
+        },
       ),
     );
   }

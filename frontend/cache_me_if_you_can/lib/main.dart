@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,6 +13,15 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Global error handlers to capture uncaught exceptions early in startup
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
+  ui.PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('UNCAUGHT (platformDispatcher): $error');
+    debugPrintStack(stackTrace: stack);
+    return true; // handled -> prevents silent engine kill
+  };
   assert(() {
     // Simple timestamp markers to diagnose startup latency in debug builds.
     final start = DateTime.now();

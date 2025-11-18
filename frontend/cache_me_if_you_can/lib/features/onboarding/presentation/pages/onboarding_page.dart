@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
@@ -56,7 +57,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _save() async {
     setState(() => _errorText = null);
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -157,79 +158,145 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
               const SizedBox(height: 12),
               if (!_useMetric)
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                (Platform.isIOS || Platform.isMacOS)
+                    ? Row(
                         children: [
-                          const Text('Height (ft)'),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 160,
-                            child: CupertinoPicker(
-                              looping: true,
-                              itemExtent: 32,
-                              scrollController: FixedExtentScrollController(
-                                initialItem: (_feet - 3).clamp(0, 5),
-                              ),
-                              onSelectedItemChanged: (i) {
-                                setState(() => _feet = 3 + i);
-                              },
-                              children: numberTextChildren(3, 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Height (ft)'),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 160,
+                                  child: CupertinoPicker(
+                                    looping: true,
+                                    itemExtent: 32,
+                                    scrollController:
+                                        FixedExtentScrollController(
+                                          initialItem: (_feet - 3).clamp(0, 5),
+                                        ),
+                                    onSelectedItemChanged: (i) {
+                                      setState(() => _feet = 3 + i);
+                                    },
+                                    children: numberTextChildren(3, 8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Inches'),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: 160,
+                                  child: CupertinoPicker(
+                                    looping: true,
+                                    itemExtent: 32,
+                                    scrollController:
+                                        FixedExtentScrollController(
+                                          initialItem: _inches.clamp(0, 11),
+                                        ),
+                                    onSelectedItemChanged: (i) {
+                                      setState(() => _inches = i);
+                                    },
+                                    children: numberTextChildren(0, 11),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      )
+                    : Row(
                         children: [
-                          const Text('Inches'),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 160,
-                            child: CupertinoPicker(
-                              looping: true,
-                              itemExtent: 32,
-                              scrollController: FixedExtentScrollController(
-                                initialItem: _inches.clamp(0, 11),
-                              ),
-                              onSelectedItemChanged: (i) {
-                                setState(() => _inches = i);
-                              },
-                              children: numberTextChildren(0, 11),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Height (ft)'),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<int>(
+                                  value: _feet,
+                                  items: [
+                                    for (int i = 3; i <= 8; i++)
+                                      DropdownMenuItem(
+                                        value: i,
+                                        child: Text('$i'),
+                                      ),
+                                  ],
+                                  onChanged: (v) =>
+                                      setState(() => _feet = v ?? 5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Inches'),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<int>(
+                                  value: _inches,
+                                  items: [
+                                    for (int i = 0; i <= 11; i++)
+                                      DropdownMenuItem(
+                                        value: i,
+                                        child: Text('$i'),
+                                      ),
+                                  ],
+                                  onChanged: (v) =>
+                                      setState(() => _inches = v ?? 6),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                )
+                      )
               else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Height (cm)'),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 160,
-                      child: CupertinoPicker(
-                        looping: true,
-                        itemExtent: 32,
-                        scrollController: FixedExtentScrollController(
-                          initialItem: (_cm - 100).clamp(0, 200),
-                        ),
-                        onSelectedItemChanged: (i) {
-                          setState(() => _cm = 100 + i);
-                        },
-                        children: numberTextChildren(100, 220),
+                (Platform.isIOS || Platform.isMacOS)
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Height (cm)'),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 160,
+                            child: CupertinoPicker(
+                              looping: true,
+                              itemExtent: 32,
+                              scrollController: FixedExtentScrollController(
+                                initialItem: (_cm - 100).clamp(0, 200),
+                              ),
+                              onSelectedItemChanged: (i) {
+                                setState(() => _cm = 100 + i);
+                              },
+                              children: numberTextChildren(100, 220),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Height (cm)'),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<int>(
+                            value: _cm,
+                            items: [
+                              for (int i = 100; i <= 220; i++)
+                                DropdownMenuItem(value: i, child: Text('$i')),
+                            ],
+                            onChanged: (v) => setState(() => _cm = v ?? 170),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _weightCtrl,
