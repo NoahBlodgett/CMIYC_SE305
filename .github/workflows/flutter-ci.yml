@@ -86,6 +86,11 @@ jobs:
           api-level: 33
           arch: x86_64
           target: google_apis
+          avd-name: test
+          profile: pixel_6
+          pre-emulator-launch-script: |
+            mkdir -p ~/.android/avd
+            mkdir -p ~/.android/avd/test.avd
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: cd frontend/cache_me_if_you_can && flutter test integration_test/ --timeout=2m
