@@ -51,7 +51,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
     setState(() {
       _errorText = null;
     });
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() {
       _submitting = true;
     });

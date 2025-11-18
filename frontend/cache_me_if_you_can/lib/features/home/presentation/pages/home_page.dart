@@ -75,9 +75,10 @@ class _HomePageState extends State<HomePage> {
   String _greetingName() {
     final user = FirebaseAuth.instance.currentUser;
     final base = user?.displayName?.trim();
+    final emailName = user?.email?.split('@').first;
     final name = (base != null && base.isNotEmpty)
         ? base
-        : (user?.email != null ? user!.email!.split('@').first : 'Friend');
+        : (emailName != null && emailName.isNotEmpty ? emailName : 'Friend');
     return 'Hello, $name';
   }
 }

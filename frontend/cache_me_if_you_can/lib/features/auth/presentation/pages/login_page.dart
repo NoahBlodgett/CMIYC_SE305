@@ -33,7 +33,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     setState(() => _error = null);
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _busy = true);
     try {
       await authRepository.signInWithEmail(
