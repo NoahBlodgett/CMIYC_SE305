@@ -24,6 +24,10 @@ void main() {
     testWidgets('Create new program and verify it appears in recent programs', (
       WidgetTester tester,
     ) async {
+      addTearDown(() async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+      });
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -92,6 +96,10 @@ void main() {
     testWidgets('Select program from recent programs list', (
       WidgetTester tester,
     ) async {
+      addTearDown(() async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+      });
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
@@ -132,6 +140,10 @@ void main() {
     testWidgets('Empty name defaults to "Custom Program"', (
       WidgetTester tester,
     ) async {
+      addTearDown(() async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+      });
       await tester.pumpWidget(const MaterialApp(home: BuildProgramPage()));
 
       await tester.pumpAndSettle();
