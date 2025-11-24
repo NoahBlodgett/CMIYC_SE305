@@ -8,6 +8,7 @@ import 'package:cache_me_if_you_can/features/onboarding/presentation/pages/pages
 import 'package:cache_me_if_you_can/features/settings/presentation/pages/pages.dart';
 import 'package:cache_me_if_you_can/features/security/presentation/pages/pages.dart';
 import 'package:cache_me_if_you_can/features/workouts/presentation/pages/pages.dart';
+import 'package:cache_me_if_you_can/features/nutrition/presentation/pages/nutrition_recommendation_page.dart';
 
 /// Centralized route names for the application.
 /// Use these constants with Navigator.pushNamed / popUntil.
@@ -23,6 +24,7 @@ abstract class Routes {
   static const workoutRecent = '/workouts/recent';
   static const workoutAi = '/workouts/ai';
   static const workoutBuild = '/workouts/build';
+  static const nutritionRecommendation = '/nutrition/recommendation';
 }
 
 /// AppRouter provides a single onGenerateRoute handler plus convenience
@@ -54,6 +56,8 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const AiProgramPage());
       case Routes.workoutBuild:
         return MaterialPageRoute(builder: (_) => const BuildProgramPage());
+      case Routes.nutritionRecommendation:
+        return MaterialPageRoute(builder: (_) => const NutritionRecommendationPage());
       default:
         return _unknownRoute(name);
     }

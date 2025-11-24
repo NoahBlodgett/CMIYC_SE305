@@ -43,6 +43,10 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Navigator.pushNamed(context, Routes.workouts),
           ),
           IconButton(
+            icon: const Icon(Icons.restaurant),
+            onPressed: () => Navigator.pushNamed(context, Routes.nutritionRecommendation),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, Routes.settings),
           ),
