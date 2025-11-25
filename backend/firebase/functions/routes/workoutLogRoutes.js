@@ -4,57 +4,57 @@ const workoutController = require('../controllers/workoutController');
 const { authenticate, authorizeUser, rateLimit } = require('../middleware/auth');
 
 /**
- * POST /workouts
+ * POST /
  * Create a new workout log entry
  * Requires: Authentication + User must be logged in
  * Rate limited: 10 requests per minute
  */
-router.post('/workouts',
+router.post('/',
   authenticate,
   rateLimit(10, 60000), // 10 requests per 60 seconds
   workoutController.createWorkout
 );
 
 /**
- * GET /workouts/:workoutID
+ * GET /:workoutID
  * Get a specific workout log entry
  * Requires: Authentication + User must own the workout entry
  */
-router.get('/workouts/:workoutID',
+router.get('/:workoutID',
   authenticate,
   workoutController.getWorkout
 );
 
 /**
- * GET /workouts/user/:userID
+ * GET /user/:userID
  * Get all workout logs for a specific user
  * Requires: Authentication + User must be accessing their own workouts
  */
-router.get('/workouts/user/:userID',
+router.get('/user/:userID',
   authenticate,
   authorizeUser,
   workoutController.getUserWorkouts
 );
 
 /**
- * PATCH /workouts/:workoutID
+ * PATCH /:workoutID
  * Update a workout log entry
  * Requires: Authentication + User must own the workout entry
  * Rate limited: 5 requests per minute to prevent abuse
  */
-router.patch('/workouts/:workoutID',
+router.patch('/:workoutID',
   authenticate,
   rateLimit(5, 60000), // 5 requests per 60 seconds
   workoutController.updateWorkout
 );
 
 /**
- * DELETE /workouts/:workoutID
+ * DELETE /:workoutID
  * Delete a workout log entry
  * Requires: Authentication + User must own the workout entry
  * Rate limited: 3 requests per minute for safety
  */
-router.delete('/workouts/:workoutID',
+router.delete('/:workoutID',
   authenticate,
   rateLimit(3, 60000), // 3 requests per 60 seconds
   workoutController.deleteWorkout

@@ -3,7 +3,7 @@ const Movement = require('../models/Movement');
 
 function isValidUserID(userId)
 {
-    const finalTruth = true;
+    let finalTruth = true;
 
     const isValidLength = (userId.length > 0 && userId.length <= 16);
 
@@ -59,43 +59,52 @@ function isValidDate(date)
 function isValidWeightLifted(weightLifted) 
 {
     // weightLifted should be a positive number
-    return weightLifted > 0;
+    return typeof weightLifted === 'number' && weightLifted > 0;
 }
 
 function isValidMovement(movement) 
 {
-    // First check if it's an instance of Movement class
-    if (!(movement instanceof Movement)) 
+    // Check if movement is an object
+    if (!movement || typeof movement !== 'object') 
     {
         return false;
     }
 
     // Validate name (required, non-empty string)
-    if (!movement.getName() || typeof movement.getName() !== 'string' || 
-    movement.getName().trim().length === 0) 
+    if (!movement.name || typeof movement.name !== 'string' || 
+    movement.name.trim().length === 0) 
     {
         return false;
     }
 
     // Validate muscle_group (required, non-empty string)
-    if (!movement.getMuscleGroup() || typeof movement.getMuscleGroup() !== 'string' || 
-    movement.getMuscleGroup().trim().length === 0) 
+    if (!movement.muscle_group || typeof movement.muscle_group !== 'string' || 
+    movement.muscle_group.trim().length === 0) 
     {
         return false;
     }
 
     // Validate sets (required, positive number)
-    if (!Number.isInteger(movement.getSets()) || movement.getSets() <= 0) 
+    if (!Number.isInteger(movement.sets) || movement.sets <= 0) 
     {
         return false;
     }
 
     // Validate reps (optional, but if present must be a positive number)
-    const reps = movement.getReps();
-    if (reps !== null && (!Number.isInteger(reps) || reps <= 0)) 
+    const reps = movement.reps;
+    if (reps !== null && reps !== undefined && (!Number.isInteger(reps) || reps <= 0)) 
     {
         return false;
     }
 
     return true;
 }
+
+module.exports = {
+    isValidUserID,
+    isValidDuration,
+    isValidCalsBurned,
+    isValidDate,
+    isValidWeightLifted,
+    isValidMovement
+};
