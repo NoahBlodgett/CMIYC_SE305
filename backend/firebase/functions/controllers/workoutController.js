@@ -42,7 +42,7 @@ async function createWorkout(req, res)
         }
 
         // Validate calories burned
-        if (!validators.isvalidcalsburned(cals_burned)) 
+        if (!validators.isValidCalsBurned(cals_burned)) 
         {
             return res.status(400).json({
                 error: 'Invalid calories burned: must be a positive number'
@@ -59,7 +59,7 @@ async function createWorkout(req, res)
         }
 
         // Validate weight lifted
-        if (!validators.isvalidweightlifted(weight_lifted)) 
+        if (!validators.isValidWeightLifted(weight_lifted)) 
         {
             return res.status(400).json(
             {
@@ -68,7 +68,7 @@ async function createWorkout(req, res)
         }
 
         // Validate movement if provided
-        if (movement && !validators.isvalidmovement(movement)) {
+        if (movement && !validators.isValidMovement(movement)) {
             return res.status(400).json(
             {
                 error: 'Invalid movement object'
@@ -218,7 +218,7 @@ async function updateWorkout(req, res)
             });
         }
 
-        if (updateData.cals_burned && !validators.isvalidcalsburned(updateData.cals_burned)) 
+        if (updateData.cals_burned && !validators.isValidCalsBurned(updateData.cals_burned)) 
         {
             return res.status(400).json(
             {
@@ -234,7 +234,7 @@ async function updateWorkout(req, res)
             });
         }
 
-        if (updateData.weight_lifted && !validators.isvalidweightlifted(updateData.weight_lifted)) 
+        if (updateData.weight_lifted && !validators.isValidWeightLifted(updateData.weight_lifted)) 
         {
             return res.status(400).json(
             {
@@ -242,7 +242,7 @@ async function updateWorkout(req, res)
             });
         }
 
-        if (updateData.movement && !validators.isvalidmovement(updateData.movement)) 
+        if (updateData.movement && !validators.isValidMovement(updateData.movement)) 
         {
             return res.status(400).json(
             {
