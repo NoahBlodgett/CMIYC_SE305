@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 // TODO: REMOVE HARDCODED BACKEND URL WHEN DEPLOYING OR USING EMULATOR
+const String backendBaseUrl = 'http://localhost:5001/se-305-db/us-central1/api';
 // END HARDCODED BACKEND URL
 
 class NutritionRecommendationPage extends StatefulWidget {
