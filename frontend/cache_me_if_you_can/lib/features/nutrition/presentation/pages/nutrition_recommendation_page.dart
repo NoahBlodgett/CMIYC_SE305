@@ -3,8 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// TODO: Replace with your computer's IP address for local testing
-const String backendBaseUrl = 'http://192.168.4.57:5001/se-305-db/us-central1/api';
+// TODO: REMOVE HARDCODED BACKEND URL WHEN DEPLOYING OR USING EMULATOR
+// END HARDCODED BACKEND URL
 
 class NutritionRecommendationPage extends StatefulWidget {
   const NutritionRecommendationPage({super.key});
@@ -28,6 +28,7 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
     _devSignIn();
   }
 
+  // TODO: REMOVE DEV SIGN-IN CODE BELOW WHEN DONE TESTING
   Future<void> _devSignIn() async {
     try {
       // Replace with your test account credentials
@@ -54,6 +55,7 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
       );
     }
   }
+  // END DEV SIGN-IN CODE
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +110,15 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
     final mealMap = meals['meals'] ?? {};
     final totalNutrition = meals['total_nutrition'] ?? {};
     final mealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'];
+
+    // TODO: REMOVE DEBUG PRINTS BELOW WHEN DONE DEBUGGING
+    print('Debug: meals for $day: $meals');
+    print('Debug: mealMap: $mealMap');
+    print('Debug: breakfast: ${mealMap['breakfast']}');
+    print('Debug: lunch: ${mealMap['lunch']}');
+    print('Debug: dinner: ${mealMap['dinner']}');
+    print('Debug: snacks: ${mealMap['snacks']}');
+    // END DEBUG PRINTS
 
     List<Widget> widgets = [];
 
