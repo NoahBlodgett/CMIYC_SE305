@@ -36,16 +36,29 @@ async function createWeekPlan(req, res){
             .limit(1)
             .get();
 
-        if (goalQuery.empty)
-        {
-            return res.status(404).json({
-                error: 'Weight goal does not exist for this user'
+        if (goalQuery.empty) {
+            // Create a default weight goal document for this user
+            await db.collection('weight_goals').add({
+                user_id: userID,
+                weight_objective: "MAINTAIN_WEIGHT" // or "LOSE_WEIGHT" / "GAIN_WEIGHT"
             });
+            // Re-run the query to get the new goal
+            const newGoalQuery = await db.collection('weight_goals')
+                .where('user_id', '==', userID)
+                .limit(1)
+                .get();
+            if (newGoalQuery.empty) {
+                return res.status(404).json({
+                    error: 'Failed to create weight goal for this user'
+                });
+            }
+            goalDoc = newGoalQuery.docs[0];
+            goalData = goalDoc.data();
+        } else {
+            // Get the goal data
+            var goalDoc = goalQuery.docs[0];
+            var goalData = goalDoc.data();
         }
-
-        // Get the goal data
-        const goalDoc = goalQuery.docs[0];
-        let goalData = goalDoc.data();
 
         let goal = 0;
 
