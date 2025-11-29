@@ -11,16 +11,7 @@ ACTIVITY_MULTIPLIERS = {
     4: 1.9     # Extremely active (athlete)
 }
 
-def getUserTarget(user):
-    """
-    Calculate target calories and macros for a user.
-    
-    Args:
-        user: Dict with user profile data
-        
-    Returns:
-        Dict with calories, protein_g, fat_g, carb_g
-    """
+def getUserTarget(user) -> tuple[int, float, float, float]:
     # Required fields for the model
     required_fields = ['Height_in', 'Weight_lb', 'Age', 'Gender', 'Activity_Level', 'Goal']
     missing_fields = [f for f in required_fields if f not in user]
@@ -52,7 +43,7 @@ def getUserTarget(user):
     }])
     
     # Predict target calories
-    target_calories = float(model.predict(user_data)[0])
+    target_calories = int(round(model.predict(user_data)[0]))
 
     # Macro Split Logic
     weight_lb = user["Weight_lb"]
@@ -76,9 +67,9 @@ def getUserTarget(user):
     carb_cals = target_calories - (protein_cals + fat_cals)
     carb_g = max(carb_cals / 4, 0)
 
-    return {
-        "calories": round(target_calories),
-        "protein_g": round(protein_g),
-        "fat_g": round(fat_g),
-        "carb_g": round(carb_g)
-    }
+    return (
+        target_calories,
+        round(protein_g),
+        round(fat_g),
+        round(carb_g)
+    )
