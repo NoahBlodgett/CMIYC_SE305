@@ -46,8 +46,7 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               TextFormField(
                 controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(labelText: 'Username or Email'),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
@@ -70,8 +69,29 @@ class _LoginPageState extends State<LoginPage> {
                         if (!(_formKey.currentState?.validate() ?? false)) return;
                         setState(() => _submitting = true);
                         try {
+                          String loginInput = _emailCtrl.text.trim();
+                          String email = loginInput;
+                          if (!loginInput.contains('@')) {
+                            // Lookup email by username in Firestore
+                            final query = await FirebaseFirestore.instance
+                                .collection('users')
+                                .where('name', isEqualTo: loginInput)
+                                .limit(1)
+                                .get();
+                            if (query.docs.isEmpty) {
+                              throw FirebaseAuthException(
+                                  code: 'user-not-found',
+                                  message: 'No user found for that username');
+                            }
+                            email = query.docs.first['email'] ?? '';
+                            if (email.isEmpty) {
+                              throw FirebaseAuthException(
+                                  code: 'user-not-found',
+                                  message: 'No email found for that username');
+                            }
+                          }
                           await authRepository.signInWithEmail(
-                            _emailCtrl.text.trim(),
+                            email,
                             _passwordCtrl.text,
                           );
                           if (!mounted) return;
