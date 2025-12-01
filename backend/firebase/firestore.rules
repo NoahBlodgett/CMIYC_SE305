@@ -44,6 +44,11 @@ service cloud.firestore {
       return !hasKey('onboarding_completed') || (request.resource.data.onboarding_completed is bool);
     }
 
+    // Allow users to read/write their own user document
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
     // Deny everything else by default
     match /{document=**} {
       allow read, write: if false;

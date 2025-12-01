@@ -17,11 +17,17 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final availableRow =
-        (screenWidth - 32.0) - 1.0; // horizontal padding & safety
-    final perItem = (availableRow - 16.0) / 2.0; // spacing between circles
-    final double circleSize = perItem.clamp(120.0, 160.0);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      debugPrint('[HomePage] currentUser is null at \\${DateTime.now()}');
+      // Defensive: show a fallback UI or force logout
+      return Scaffold(
+        appBar: AppBar(title: const Text('Error')),
+        body: const Center(
+          child: Text('User not found. Please log in again.'),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -63,8 +69,8 @@ class _HomePageState extends State<HomePage> {
             runSpacing: 16,
             alignment: WrapAlignment.center,
             children: [
-              _WeeklyWorkoutsCircle(size: circleSize),
-              _DailyCaloriesCircle(size: circleSize),
+              const _WeeklyWorkoutsCircle(),
+              const _DailyCaloriesCircle(),
             ],
           ),
         ),
@@ -118,13 +124,18 @@ class _MetricCircle extends StatelessWidget {
 }
 
 class _WeeklyWorkoutsCircle extends StatelessWidget {
-  final double size;
-  const _WeeklyWorkoutsCircle({required this.size});
+  const _WeeklyWorkoutsCircle({super.key});
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final availableRow = (screenWidth - 32.0) - 1.0;
+    final perItem = (availableRow - 16.0) / 2.0;
+    final double size = perItem.clamp(120.0, 160.0);
     const target = 4;
-    if (uid == null) {
+    if (uid == null || uid.isEmpty) {
+      debugPrint('[WeeklyWorkoutsCircle] user.uid is empty');
       return _MetricCircle(
         size: size,
         progress: 0,
@@ -153,12 +164,17 @@ class _WeeklyWorkoutsCircle extends StatelessWidget {
 }
 
 class _DailyCaloriesCircle extends StatelessWidget {
-  final double size;
-  const _DailyCaloriesCircle({required this.size});
+  const _DailyCaloriesCircle({super.key});
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final availableRow = (screenWidth - 32.0) - 1.0;
+    final perItem = (availableRow - 16.0) / 2.0;
+    final double size = perItem.clamp(120.0, 160.0);
+    if (uid == null || uid.isEmpty) {
+      debugPrint('[DailyCaloriesCircle] user.uid is empty');
       return _MetricCircle(
         size: size,
         progress: 0,

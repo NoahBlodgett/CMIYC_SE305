@@ -35,14 +35,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final _weightCtrl = TextEditingController();
   final _allergiesCtrl = TextEditingController();
 
-  int _feet = 5;
-  int _inches = 6;
   bool _useMetric = false;
   int _cm = 170;
-
+  int _feet = 5;
+  int _inches = 6;
   String _gender = 'male';
   double _activityLevel = 1.2;
-
   bool _saving = false;
   String? _errorText;
 
@@ -56,41 +54,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _save() async {
-    setState(() => _errorText = null);
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    setState(() => _saving = true);
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _saving = true;
+      _errorText = null;
+    });
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        setState(() => _errorText = 'Not signed in');
+        Navigator.of(context).pushNamedAndRemoveUntil(Routes.login, (r) => false);
         return;
       }
-      final name = _nameCtrl.text.trim();
-      final age = int.parse(_ageCtrl.text.trim());
-      final height = _useMetric
-          ? inchesFromCm(_cm)
-          : inchesFromFeetInches(_feet, _inches);
-      final weight = double.parse(_weightCtrl.text.trim());
-      final allergies = _allergiesCtrl.text.trim();
-
+      // Save onboarding data to Firestore (create doc if missing)
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'name': name,
-        'age': age,
+        'email': user.email ?? '',
+        'name': _nameCtrl.text.trim(),
+        'age': int.tryParse(_ageCtrl.text.trim()),
+        'weight': double.tryParse(_weightCtrl.text.trim()),
+        'height_cm': _useMetric ? _cm : ((inchesFromFeetInches(_feet, _inches) * 2.54).round()),
         'gender': _gender,
-        'height': height,
-        'weight': weight,
-        if (allergies.isNotEmpty) 'allergies': allergies,
         'activity_level': _activityLevel,
+        'allergies': _allergiesCtrl.text.trim(),
+        'units_metric': _useMetric,
         'onboarding_completed': true,
       }, SetOptions(merge: true));
-
-      if (name.isNotEmpty) {
-        await user.updateDisplayName(name);
+      // Set displayName so resolveInitialRoute works
+      if (_nameCtrl.text.trim().isNotEmpty) {
+        await user.updateDisplayName(_nameCtrl.text.trim());
         await user.reload();
       }
-
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, Routes.home);
+      Navigator.of(context).pushReplacementNamed(Routes.home);
     } catch (e) {
       setState(() => _errorText = e.toString());
     } finally {
@@ -221,7 +214,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                 const Text('Height (ft)'),
                                 const SizedBox(height: 8),
                                 DropdownButtonFormField<int>(
-                                  value: _feet,
+                                  initialValue: _feet,
                                   items: [
                                     for (int i = 3; i <= 8; i++)
                                       DropdownMenuItem(
@@ -243,7 +236,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                 const Text('Inches'),
                                 const SizedBox(height: 8),
                                 DropdownButtonFormField<int>(
-                                  value: _inches,
+                                  initialValue: _inches,
                                   items: [
                                     for (int i = 0; i <= 11; i++)
                                       DropdownMenuItem(
@@ -288,7 +281,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           const Text('Height (cm)'),
                           const SizedBox(height: 8),
                           DropdownButtonFormField<int>(
-                            value: _cm,
+                            initialValue: _cm,
                             items: [
                               for (int i = 100; i <= 220; i++)
                                 DropdownMenuItem(value: i, child: Text('$i')),

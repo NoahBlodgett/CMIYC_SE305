@@ -206,62 +206,35 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // router already declared below, removed duplicate
+    // Always start at the login page as the base route
     final router = AppRouter();
-    return FutureBuilder<String>(
-      future: router.resolveInitialRoute(),
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          // While resolving, show a lightweight splash instead of defaulting to '/'
-          // which maps to Home and can expose the app before auth.
-          return MaterialApp(
-            title: 'Momentum',
-            theme: AppTheme.lightTheme,
-            debugShowCheckedModeBanner: false,
-            home: const _SplashScreen(),
-            onGenerateRoute: router.onGenerateRoute,
+    return MaterialApp(
+      title: 'Momentum',
+      theme: AppTheme.lightTheme,
+      debugShowCheckedModeBanner: false,
+      initialRoute: Routes.login,
+      onGenerateRoute: router.onGenerateRoute,
+      builder: (context, child) {
+        ErrorWidget.builder = (FlutterErrorDetails details) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(child: Text('Global error: \\${details.exceptionAsString()}')),
           );
+        };
+        try {
+          return child!;
+        } catch (e) {
+          debugPrint('[MyApp] Exception in builder: $e');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushNamedAndRemoveUntil(Routes.login, (route) => false);
+          });
+          return const SizedBox.shrink();
         }
-
-        final initial = snap.data ?? Routes.login;
-        assert(() {
-          debugPrint(
-            '[StartupTrace] Initial route resolved to "${initial}" at ${DateTime.now()}',
-          );
-          return true;
-        }());
-        return MaterialApp(
-          title: 'Momentum',
-          theme: AppTheme.lightTheme,
-          debugShowCheckedModeBanner: false,
-          initialRoute: initial,
-          onGenerateRoute: router.onGenerateRoute,
-        );
       },
     );
   }
 }
 // HomePage lives in features/home; routing handled by AppRouter.
 
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(strokeWidth: 3),
-            ),
-            SizedBox(height: 12),
-            Text('Loading…'),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _SplashScreen removed as it is no longer used
