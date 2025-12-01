@@ -253,8 +253,8 @@ class _RecentSessionsCard extends StatelessWidget {
     if (uid == null) {
       return const _SectionCard(child: Text('Sign in to view sessions'));
     }
-    return StreamBuilder<List<WorkoutSession>>(
-      stream: workoutsRepository.recentSessions(uid, limit: 10),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: workoutApiService.getUserWorkouts(uid),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SectionCard(
@@ -264,8 +264,8 @@ class _RecentSessionsCard extends StatelessWidget {
             ),
           );
         }
-        final sessions = snapshot.data ?? const [];
-        if (sessions.isEmpty) {
+        final data = snapshot.data ?? const [];
+        if (data.isEmpty) {
           return _SectionCard(
             child: ListTile(
               leading: const Icon(Icons.info_outline),
@@ -283,21 +283,24 @@ class _RecentSessionsCard extends StatelessWidget {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: sessions.length,
+            itemCount: data.length,
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, i) {
-              final s = sessions[i];
+              final s = data[i];
+              final type = s['type'] == 'timed' ? WorkoutSessionType.timed : WorkoutSessionType.strength;
               final title =
-                  s.name ??
-                  (s.type == WorkoutSessionType.timed
-                      ? s.activityKey ?? 'Timed session'
+                  s['name'] ??
+                  (type == WorkoutSessionType.timed
+                      ? (s['activityKey'] ?? 'Timed session')
                       : 'Strength session');
-              final meta = _metaFor(s);
+                final meta = type == WorkoutSessionType.timed
+                  ? '${s['durationMinutes'] ?? 0} min · ${(s['caloriesBurned'] ?? 0).round()} kcal'
+                  : '${(s['sets'] as List?)?.length ?? 0} sets · ${(s['sets'] as List?)?.fold<int>(0, (sum, set) => sum + ((set['reps'] ?? 0) as int)) ?? 0} reps · ${(s['caloriesBurned'] ?? 0).round()} kcal';
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: color.primary.withValues(alpha: 0.15),
+                  backgroundColor: color.primary.withAlpha(38),
                   child: Icon(
-                    s.type == WorkoutSessionType.timed
+                    type == WorkoutSessionType.timed
                         ? Icons.timer
                         : Icons.fitness_center,
                     color: color.primary,
@@ -341,27 +344,25 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(6),
-            child: Icon(icon, color: tint),
+    return Row(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: tint.withAlpha(31),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 10),
-          Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, color: tint),
+        ),
+        SizedBox(width: 10),
+        Text(
+          title,
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
     );
   }
 }

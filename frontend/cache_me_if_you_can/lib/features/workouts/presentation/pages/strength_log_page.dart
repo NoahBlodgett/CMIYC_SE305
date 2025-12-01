@@ -86,7 +86,7 @@ class _StrengthLogPageState extends State<StrengthLogPage> {
       name: _nameCtrl.text.trim(),
     );
     try {
-      await workoutsRepository.addSession(uid, session);
+      await workoutApiService.logWorkout(session);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
