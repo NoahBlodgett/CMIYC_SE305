@@ -29,6 +29,9 @@ abstract class Routes {
   static const workoutAi = '/workouts/ai';
   static const workoutBuild = '/workouts/build';
   static const nutritionRecommendation = '/nutrition/recommendation';
+  static const workoutPlan = '/workouts/plan';
+  static const workoutSessions = '/workouts/sessions';
+  static const workoutFeedback = '/workouts/feedback';
 }
 
 /// AppRouter provides a single onGenerateRoute handler plus convenience
@@ -66,6 +69,12 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const BuildProgramPage());
       case Routes.nutritionRecommendation:
         return MaterialPageRoute(builder: (_) => const NutritionRecommendationPage());
+      case Routes.workoutPlan:
+        return MaterialPageRoute(builder: (_) => const PlanOverviewPage());
+      case Routes.workoutSessions:
+        return MaterialPageRoute(builder: (_) => const RecentSessionsPage());
+      case Routes.workoutFeedback:
+        return MaterialPageRoute(builder: (_) => const FeedbackInsightsPage());
       default:
         return _unknownRoute(name);
     }
@@ -102,15 +111,23 @@ class AppRouter {
   Future<String> resolveInitialRoute() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      debugPrint('[resolveInitialRoute] user: '
-          '${user == null ? 'null' : user.uid} at ${DateTime.now()}');
+      debugPrint(
+        '[resolveInitialRoute] user: '
+        '${user == null ? 'null' : user.uid} at ${DateTime.now()}',
+      );
       if (user == null) return Routes.login;
       // Check Firestore for onboarding_completed flag
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       final data = doc.data();
-      debugPrint('[resolveInitialRoute] Firestore user doc: ${data?.toString()}');
+      debugPrint(
+        '[resolveInitialRoute] Firestore user doc: ${data?.toString()}',
+      );
       // If doc is missing or onboarding_completed is not true, go to onboarding
-      if (data == null || data['onboarding_completed'] != true) return Routes.onboarding;
+      if (data == null || data['onboarding_completed'] != true)
+        return Routes.onboarding;
       return Routes.home;
     } catch (e, stack) {
       debugPrint('[resolveInitialRoute] Exception: $e\n$stack');
