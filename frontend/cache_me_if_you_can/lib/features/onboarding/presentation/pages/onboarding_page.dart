@@ -59,10 +59,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
       _saving = true;
       _errorText = null;
     });
+    final navigator = Navigator.of(context);
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        Navigator.of(context).pushNamedAndRemoveUntil(Routes.login, (r) => false);
+        if (!mounted) return;
+        navigator.pushNamedAndRemoveUntil(Routes.login, (r) => false);
         return;
       }
       // Save onboarding data to Firestore (create doc if missing)
@@ -71,7 +73,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
         'name': _nameCtrl.text.trim(),
         'age': int.tryParse(_ageCtrl.text.trim()),
         'weight': double.tryParse(_weightCtrl.text.trim()),
-        'height_cm': _useMetric ? _cm : ((inchesFromFeetInches(_feet, _inches) * 2.54).round()),
+        'height_cm': _useMetric
+            ? _cm
+            : ((inchesFromFeetInches(_feet, _inches) * 2.54).round()),
         'gender': _gender,
         'activity_level': _activityLevel,
         'allergies': _allergiesCtrl.text.trim(),
@@ -83,7 +87,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
         await user.updateDisplayName(_nameCtrl.text.trim());
         await user.reload();
       }
-      Navigator.of(context).pushReplacementNamed(Routes.home);
+      if (!mounted) return;
+      navigator.pushReplacementNamed(Routes.home);
     } catch (e) {
       setState(() => _errorText = e.toString());
     } finally {

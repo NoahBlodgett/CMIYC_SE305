@@ -23,9 +23,7 @@ class _HomePageState extends State<HomePage> {
       // Defensive: show a fallback UI or force logout
       return Scaffold(
         appBar: AppBar(title: const Text('Error')),
-        body: const Center(
-          child: Text('User not found. Please log in again.'),
-        ),
+        body: const Center(child: Text('User not found. Please log in again.')),
       );
     }
 
@@ -121,7 +119,7 @@ class _MetricCircle extends StatelessWidget {
 }
 
 class _WeeklyWorkoutsCircle extends StatelessWidget {
-  const _WeeklyWorkoutsCircle({super.key});
+  const _WeeklyWorkoutsCircle();
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -161,7 +159,7 @@ class _WeeklyWorkoutsCircle extends StatelessWidget {
 }
 
 class _DailyCaloriesCircle extends StatelessWidget {
-  const _DailyCaloriesCircle({super.key});
+  const _DailyCaloriesCircle();
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;

@@ -46,76 +46,107 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               TextFormField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'Username or Email'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Username or Email',
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordCtrl,
                 decoration: const InputDecoration(labelText: 'Password'),
                 obscureText: true,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               if (_errorText != null)
-                Text(_errorText!, style: const TextStyle(color: Colors.redAccent)),
+                Text(
+                  _errorText!,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _submitting ? null : () async {
-                        setState(() => _errorText = null);
-                        if (!(_formKey.currentState?.validate() ?? false)) return;
-                        setState(() => _submitting = true);
-                        try {
-                          String loginInput = _emailCtrl.text.trim();
-                          String email = loginInput;
-                          if (!loginInput.contains('@')) {
-                            // Lookup email by username in Firestore
-                            final query = await FirebaseFirestore.instance
-                                .collection('users')
-                                .where('name', isEqualTo: loginInput)
-                                .limit(1)
-                                .get();
-                            if (query.docs.isEmpty) {
-                              throw FirebaseAuthException(
-                                  code: 'user-not-found',
-                                  message: 'No user found for that username');
-                            }
-                            email = query.docs.first['email'] ?? '';
-                            if (email.isEmpty) {
-                              throw FirebaseAuthException(
-                                  code: 'user-not-found',
-                                  message: 'No email found for that username');
-                            }
-                          }
-                          await authRepository.signInWithEmail(
-                            email,
-                            _passwordCtrl.text,
-                          );
-                          if (!mounted) return;
-                          // Ensure Firestore user doc exists
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (user != null) {
-                            final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-                            if (!doc.exists) {
-                              await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-                                'email': user.email ?? _emailCtrl.text.trim(),
-                                'onboarding_completed': false,
-                              }, SetOptions(merge: true));
-                            }
-                            if (!mounted) return;
-                            Navigator.of(context).pushReplacementNamed(Routes.home);
-                          }
-                        } on FirebaseAuthException catch (e) {
-                          setState(() => _errorText = e.message ?? 'Login failed');
-                        } catch (e) {
-                          setState(() => _errorText = e.toString());
-                        } finally {
-                          if (mounted) setState(() => _submitting = false);
-                        }
-                      },
+                      onPressed: _submitting
+                          ? null
+                          : () async {
+                              setState(() => _errorText = null);
+                              if (!(_formKey.currentState?.validate() ??
+                                  false)) {
+                                return;
+                              }
+                              setState(() => _submitting = true);
+                              try {
+                                String loginInput = _emailCtrl.text.trim();
+                                String email = loginInput;
+                                if (!loginInput.contains('@')) {
+                                  // Lookup email by username in Firestore
+                                  final query = await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .where('name', isEqualTo: loginInput)
+                                      .limit(1)
+                                      .get();
+                                  if (query.docs.isEmpty) {
+                                    throw FirebaseAuthException(
+                                      code: 'user-not-found',
+                                      message:
+                                          'No user found for that username',
+                                    );
+                                  }
+                                  email = query.docs.first['email'] ?? '';
+                                  if (email.isEmpty) {
+                                    throw FirebaseAuthException(
+                                      code: 'user-not-found',
+                                      message:
+                                          'No email found for that username',
+                                    );
+                                  }
+                                }
+                                await authRepository.signInWithEmail(
+                                  email,
+                                  _passwordCtrl.text,
+                                );
+                                if (!context.mounted) return;
+                                // Ensure Firestore user doc exists
+                                final user = FirebaseAuth.instance.currentUser;
+                                if (user != null) {
+                                  final doc = await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(user.uid)
+                                      .get();
+                                  if (!doc.exists) {
+                                    await FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(user.uid)
+                                        .set({
+                                          'email':
+                                              user.email ??
+                                              _emailCtrl.text.trim(),
+                                          'onboarding_completed': false,
+                                        }, SetOptions(merge: true));
+                                  }
+                                  if (!context.mounted) return;
+                                  Navigator.of(
+                                    context,
+                                  ).pushReplacementNamed(Routes.home);
+                                }
+                              } on FirebaseAuthException catch (e) {
+                                setState(
+                                  () =>
+                                      _errorText = e.message ?? 'Login failed',
+                                );
+                              } catch (e) {
+                                setState(() => _errorText = e.toString());
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _submitting = false);
+                                }
+                              }
+                            },
                       child: _submitting
                           ? const SizedBox(
                               width: 18,
@@ -127,9 +158,11 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton(
-                    onPressed: _submitting ? null : () async {
-                      await Navigator.pushNamed(context, Routes.signup);
-                    },
+                    onPressed: _submitting
+                        ? null
+                        : () async {
+                            await Navigator.pushNamed(context, Routes.signup);
+                          },
                     child: const Text('Create account'),
                   ),
                 ],

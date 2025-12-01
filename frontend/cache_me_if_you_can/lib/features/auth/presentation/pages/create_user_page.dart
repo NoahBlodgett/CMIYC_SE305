@@ -57,7 +57,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
 
     try {
       // Use repository for email/password sign-up
-      final created = await authRepository.signUpWithEmail(
+      await authRepository.signUpWithEmail(
         _emailCtrl.text.trim(),
         _passwordCtrl.text,
       );

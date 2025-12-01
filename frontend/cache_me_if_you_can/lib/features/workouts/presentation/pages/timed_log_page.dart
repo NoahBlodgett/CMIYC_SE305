@@ -1,8 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../workouts_dependencies.dart';
+import 'package:flutter/material.dart';
+
+import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
+
 import '../../data/services/met_calorie_service.dart';
 import '../../domain/entities/workout_session.dart';
+import '../../workouts_dependencies.dart';
+import '../widgets/feedback_prompt_card.dart';
 
 class TimedLogPage extends StatefulWidget {
   const TimedLogPage({super.key});
@@ -12,29 +18,88 @@ class TimedLogPage extends StatefulWidget {
 
 class _TimedLogPageState extends State<TimedLogPage> {
   final _activityCtrl = TextEditingController();
-  final _durationCtrl = TextEditingController(text: '30');
-  final _weightCtrl = TextEditingController(text: '180'); // lbs default
   MetRangeMode _rangeMode = MetRangeMode.mid;
   List<String> _suggestions = [];
+  double? _userWeightKg;
+  bool _loadingProfile = true;
+
+  double _durationSliderValue = 30;
+  Duration _elapsed = Duration.zero;
+  Timer? _ticker;
+  bool _timerRunning = false;
+
+  static const List<_ActivityShortcut> _shortcuts = [
+    _ActivityShortcut(
+      label: 'Tempo run',
+      key: 'running_6_8_mph',
+      icon: Icons.directions_run,
+    ),
+    _ActivityShortcut(
+      label: 'Zone 2 ride',
+      key: 'bicycling_12_13_9_mph',
+      icon: Icons.directions_bike,
+    ),
+    _ActivityShortcut(
+      label: 'Lap swim',
+      key: 'swimming_hard',
+      icon: Icons.pool,
+    ),
+    _ActivityShortcut(
+      label: 'HIIT circuit',
+      key: 'resistance_training_moderate',
+      icon: Icons.bolt,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateProfile();
+  }
 
   @override
   void dispose() {
     _activityCtrl.dispose();
-    _durationCtrl.dispose();
-    _weightCtrl.dispose();
+    _ticker?.cancel();
     super.dispose();
   }
 
+  Future<void> _hydrateProfile() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      setState(() => _loadingProfile = false);
+      return;
+    }
+    final weightKg = await userMetricsService.loadUserWeightKg(uid: uid);
+    if (!mounted) return;
+    setState(() {
+      _userWeightKg = weightKg;
+      _loadingProfile = false;
+    });
+  }
+
+  bool get _usingTimer => _elapsed.inSeconds >= 30;
+
+  int get _effectiveDurationMinutes {
+    if (_usingTimer) {
+      final minutes = (_elapsed.inSeconds / 60).ceil();
+      return minutes.clamp(1, 600);
+    }
+    return _durationSliderValue.round();
+  }
+
   double? _calculatedCalories() {
-    final key = _activityCtrl.text.trim().toLowerCase().replaceAll(' ', '_');
-    final dur = int.tryParse(_durationCtrl.text) ?? 0;
-    final weightLb = double.tryParse(_weightCtrl.text) ?? 0;
-    final weightKg = poundsToKg(weightLb);
-    final metKey = key;
+    final weightKg = _userWeightKg;
+    if (weightKg == null) return null;
+    final duration = _effectiveDurationMinutes;
+    if (duration <= 0) return null;
+    final activityRaw = _activityCtrl.text.trim();
+    if (activityRaw.isEmpty) return null;
+    final key = activityRaw.toLowerCase().replaceAll(' ', '_');
     final calories = metCalorieService.caloriesBurned(
-      activityKey: metKey,
+      activityKey: key,
       weightKg: weightKg,
-      durationMinutes: dur,
+      durationMinutes: duration,
       rangeMode: _rangeMode,
     );
     return calories > 0 ? calories : null;
@@ -42,18 +107,179 @@ class _TimedLogPageState extends State<TimedLogPage> {
 
   void _updateSuggestions(String value) {
     setState(() {
-      _suggestions = metCalorieService.suggestKeys(value);
+      _suggestions = value.isEmpty
+          ? const []
+          : metCalorieService.suggestKeys(value, maxSuggestions: 6);
     });
+  }
+
+  void _startTimer() {
+    if (_timerRunning) return;
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() => _elapsed += const Duration(seconds: 1));
+    });
+    setState(() => _timerRunning = true);
+  }
+
+  void _pauseTimer() {
+    _ticker?.cancel();
+    if (_timerRunning) {
+      setState(() => _timerRunning = false);
+    }
+  }
+
+  void _resetTimer() {
+    _ticker?.cancel();
+    setState(() {
+      _elapsed = Duration.zero;
+      _timerRunning = false;
+    });
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    final buffer = StringBuffer();
+    if (hours > 0) {
+      buffer.write(hours.toString().padLeft(2, '0'));
+      buffer.write('·');
+    }
+    buffer.write(minutes.toString().padLeft(2, '0'));
+    buffer.write(':');
+    buffer.write(seconds.toString().padLeft(2, '0'));
+    return buffer.toString();
+  }
+
+  String _humanizeActivityKey(String key) {
+    return key
+        .split(RegExp(r'[_ ]+'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _promptFeedback({
+    required String featureKey,
+    required String headline,
+  }) async {
+    final payload = await _showFeedbackSheet(headline: headline);
+    if (!mounted || payload == null) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    try {
+      await workoutFeedbackService.submitFeedback(
+        featureKey: featureKey,
+        rating: payload.rating,
+        comment: payload.note,
+        userId: uid,
+      );
+      _showSnack('Thanks for the feedback!');
+    } catch (_) {
+      _showSnack('Could not send feedback right now.');
+    }
+  }
+
+  Future<_FeedbackPayload?> _showFeedbackSheet({
+    required String headline,
+  }) async {
+    final noteCtrl = TextEditingController();
+    int rating = 4;
+    final result = await showModalBottomSheet<_FeedbackPayload>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            16 + MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModalState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(headline, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                Slider(
+                  value: rating.toDouble(),
+                  min: 1,
+                  max: 5,
+                  divisions: 4,
+                  label: '$rating',
+                  onChanged: (value) =>
+                      setModalState(() => rating = value.round()),
+                ),
+                Text(
+                  rating >= 4
+                      ? 'Feels great'
+                      : rating >= 2
+                      ? 'Needs work'
+                      : 'Frustrating',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteCtrl,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'What stood out?',
+                    hintText: 'Shortcut ideas, confusing flows, missing cues…',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => Navigator.pop(
+                    ctx,
+                    _FeedbackPayload(
+                      rating: rating,
+                      note: noteCtrl.text.trim(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.send),
+                  label: const Text('Submit feedback'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    noteCtrl.dispose();
+    return result;
   }
 
   Future<void> _onSave() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    final weightKg = _userWeightKg;
+    if (weightKg == null) {
+      _showSnack(
+        'Add your body weight in Settings to log calories accurately.',
+      );
+      return;
+    }
     final activityRaw = _activityCtrl.text.trim();
+    if (activityRaw.isEmpty) {
+      _showSnack('Choose an activity to log.');
+      return;
+    }
+    final duration = _effectiveDurationMinutes;
+    if (duration <= 0) {
+      _showSnack('Duration must be at least 1 minute.');
+      return;
+    }
     final activityKey = activityRaw.toLowerCase().replaceAll(' ', '_');
-    final duration = int.tryParse(_durationCtrl.text) ?? 0;
-    final weightLb = double.tryParse(_weightCtrl.text) ?? 0;
-    final weightKg = poundsToKg(weightLb);
     final calories = metCalorieService.caloriesBurned(
       activityKey: activityKey,
       weightKg: weightKg,
@@ -75,97 +301,352 @@ class _TimedLogPageState extends State<TimedLogPage> {
       await workoutApiService.logWorkout(session);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+      _showSnack('Failed to save: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final calories = _calculatedCalories();
+    final durationMinutes = _effectiveDurationMinutes;
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Log Timed Activity')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.timer, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Live timer',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _formatDuration(_elapsed),
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _timerRunning ? _pauseTimer : _startTimer,
+                          icon: Icon(
+                            _timerRunning
+                                ? Icons.pause
+                                : Icons.play_arrow_rounded,
+                          ),
+                          label: Text(
+                            _timerRunning
+                                ? 'Pause timer'
+                                : (_elapsed == Duration.zero
+                                      ? 'Start timer'
+                                      : 'Resume timer'),
+                          ),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _elapsed == Duration.zero
+                              ? null
+                              : _pauseTimer,
+                          icon: const Icon(Icons.flag_outlined),
+                          label: const Text('Mark finish'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _elapsed == Duration.zero ? null : _resetTimer,
+                      child: const Text('Reset timer'),
+                    ),
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: Text(
+                      _usingTimer
+                          ? 'Timer duration will be logged ($durationMinutes min).'
+                          : 'Using manual duration presets until the timer runs.',
+                      key: ValueKey(_usingTimer),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.hintColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           TextField(
             controller: _activityCtrl,
             decoration: const InputDecoration(
-              labelText: 'Activity (e.g. running_6_8_mph)',
+              labelText: 'Activity',
+              hintText: 'Search running, cycling, rowing…',
+              prefixIcon: Icon(Icons.search),
             ),
+            textInputAction: TextInputAction.search,
             onChanged: _updateSuggestions,
           ),
-          if (_suggestions.isNotEmpty)
-            Wrap(
-              spacing: 6,
-              children: [
-                for (final s in _suggestions)
-                  ActionChip(
-                    label: Text(s),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _shortcuts
+                .map(
+                  (shortcut) => ActionChip(
+                    avatar: Icon(shortcut.icon, size: 18),
+                    label: Text(shortcut.label),
                     onPressed: () {
-                      _activityCtrl.text = s;
-                      _updateSuggestions(s);
+                      _activityCtrl.text = shortcut.key;
+                      _updateSuggestions(shortcut.key);
+                      FocusScope.of(context).unfocus();
                     },
                   ),
-              ],
-            ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _durationCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Duration (minutes)'),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _weightCtrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Body Weight (lbs)'),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<MetRangeMode>(
-            initialValue: _rangeMode,
-            decoration: const InputDecoration(labelText: 'MET range selection'),
-            items: MetRangeMode.values
-                .map((m) => DropdownMenuItem(value: m, child: Text(m.name)))
+                )
                 .toList(),
-            onChanged: (val) =>
-                setState(() => _rangeMode = val ?? MetRangeMode.mid),
+          ),
+          if (_suggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: _suggestions
+                    .map(
+                      (s) => ListTile(
+                        leading: const Icon(Icons.north_east),
+                        title: Text(_humanizeActivityKey(s)),
+                        subtitle: Text(s),
+                        onTap: () {
+                          _activityCtrl.text = s;
+                          _updateSuggestions(s);
+                          FocusScope.of(context).unfocus();
+                        },
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.access_time),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Duration presets',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [15, 30, 45, 60]
+                        .map(
+                          (minutes) => ChoiceChip(
+                            label: Text('$minutes min'),
+                            selected:
+                                !_usingTimer &&
+                                _durationSliderValue.round() == minutes,
+                            onSelected: _usingTimer
+                                ? null
+                                : (_) => setState(
+                                    () => _durationSliderValue = minutes
+                                        .toDouble(),
+                                  ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  Slider(
+                    value: _durationSliderValue,
+                    min: 5,
+                    max: 120,
+                    divisions: 23,
+                    label: '${_durationSliderValue.round()} min',
+                    onChanged: _usingTimer
+                        ? null
+                        : (value) =>
+                              setState(() => _durationSliderValue = value),
+                  ),
+                  Text(
+                    _usingTimer
+                        ? 'Timer captured $durationMinutes min'
+                        : 'Manual duration: ${_durationSliderValue.round()} min',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.hintColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 20),
-          if (calories != null)
-            Card(
-              color: Colors.green.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Estimated calories',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text('${calories.toStringAsFixed(1)} kcal'),
-                  ],
-                ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.bolt_outlined),
+                      const SizedBox(width: 8),
+                      Text('Intensity', style: theme.textTheme.titleMedium),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: MetRangeMode.values
+                        .map(
+                          (mode) => ChoiceChip(
+                            label: Text(mode.name.toUpperCase()),
+                            selected: _rangeMode == mode,
+                            onSelected: (_) =>
+                                setState(() => _rangeMode = mode),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ),
-            )
-          else
-            const Text(
-              'Enter valid activity, duration, and weight to calculate calories.',
             ),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.monitor_weight_outlined),
+              title: _loadingProfile
+                  ? const Text('Loading profile weight…')
+                  : Text(
+                      _userWeightKg == null
+                          ? 'Add your body weight'
+                          : '${kgToPounds(_userWeightKg!).round()} lbs from profile',
+                    ),
+              subtitle: Text(
+                _userWeightKg == null
+                    ? 'Body weight lives in your profile. We use it for calorie precision.'
+                    : 'Update your weight in Settings to keep estimates accurate.',
+              ),
+              trailing: TextButton(
+                onPressed: () => Navigator.pushNamed(context, Routes.settings),
+                child: Text(_userWeightKg == null ? 'Update' : 'Edit'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            color: calories == null
+                ? Colors.orange.shade50
+                : Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Estimated calories',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    calories == null
+                        ? 'Enter an activity + duration to see calories.'
+                        : '${calories.toStringAsFixed(0)} kcal',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: calories == null
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Duration · $durationMinutes min    •    Intensity · ${_rangeMode.name}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.hintColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          FeedbackPromptCard(
+            title: 'Help shape the live timer',
+            subtitle:
+                'Does the timer + presets flow feel intuitive? Share a quick thought.',
+            buttonLabel: 'Share feedback',
+            onPressed: () => _promptFeedback(
+              featureKey: 'timer_v2',
+              headline: 'Rate the live timer experience',
+            ),
+          ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.save),
-            label: const Text('Save Session'),
+          FilledButton.icon(
             onPressed: calories == null ? null : _onSave,
+            icon: const Icon(Icons.check_circle_outline),
+            label: const Text('Save session'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class _ActivityShortcut {
+  final String label;
+  final String key;
+  final IconData icon;
+  const _ActivityShortcut({
+    required this.label,
+    required this.key,
+    required this.icon,
+  });
+}
+
+class _FeedbackPayload {
+  final int rating;
+  final String note;
+  const _FeedbackPayload({required this.rating, required this.note});
 }
