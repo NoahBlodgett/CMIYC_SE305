@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Feature barrels
 import 'package:cache_me_if_you_can/features/home/presentation/pages/pages.dart';
@@ -96,13 +98,18 @@ class AppRouter {
   Future<String> resolveInitialRoute() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
+      debugPrint('[resolveInitialRoute] user: '
+          '${user == null ? 'null' : user.uid} at ${DateTime.now()}');
       if (user == null) return Routes.login;
-      // Minimal heuristic: if displayName is empty OR a Firestore flag is false, send to onboarding.
-      // (Extend by checking Firestore doc if needed.)
-      final dn = user.displayName?.trim();
-      if (dn == null || dn.isEmpty) return Routes.onboarding;
+      // Check Firestore for onboarding_completed flag
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final data = doc.data();
+      debugPrint('[resolveInitialRoute] Firestore user doc: ${data?.toString()}');
+      // If doc is missing or onboarding_completed is not true, go to onboarding
+      if (data == null || data['onboarding_completed'] != true) return Routes.onboarding;
       return Routes.home;
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[resolveInitialRoute] Exception: $e\n$stack');
       // If Firebase isn't initialized in this environment (tests, new installs),
       // default to login instead of throwing.
       return Routes.login;
