@@ -72,7 +72,7 @@ class _TimedLogPageState extends State<TimedLogPage> {
       name: activityRaw,
     );
     try {
-      await workoutsRepository.addSession(uid, session);
+      await workoutApiService.logWorkout(session);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;

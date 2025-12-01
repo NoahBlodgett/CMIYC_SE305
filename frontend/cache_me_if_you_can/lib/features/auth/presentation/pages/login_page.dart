@@ -85,6 +85,8 @@ class _LoginPageState extends State<LoginPage> {
                                 'onboarding_completed': false,
                               }, SetOptions(merge: true));
                             }
+                            if (!mounted) return;
+                            Navigator.of(context).pushReplacementNamed(Routes.home);
                           }
                         } on FirebaseAuthException catch (e) {
                           setState(() => _errorText = e.message ?? 'Login failed');
