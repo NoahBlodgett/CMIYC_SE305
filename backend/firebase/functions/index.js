@@ -25,11 +25,10 @@ expressApp.use('/workouts', workoutLogRoutes);
 const mealGenerationRoutes = require('./routes/mealGenerationRoutes');
 
 // Register routes
-expressApp.use('/users', userRoutes);d
 expressApp.use('/meals', mealGenerationRoutes);
 expressApp.use('/workouts', workoutLogRoutes);
 
 
-// Export the Express app as a Cloud Function
-exports.api = onRequest(expressApp);
+// Export the Express app as a Cloud Function (Gen 1)
+exports.api = functions.https.onRequest(expressApp);
 

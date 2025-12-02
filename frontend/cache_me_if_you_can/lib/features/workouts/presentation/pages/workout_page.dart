@@ -52,8 +52,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
   Future<void> _refreshRecentSessions() async {
     final next = _loadRecentSessions();
     if (!mounted) return;
-    setState(() => _recentSessionsFuture = next);
-    await next;
+    setState(() {
+      _recentSessionsFuture = next;
+    });
   }
 
   @override

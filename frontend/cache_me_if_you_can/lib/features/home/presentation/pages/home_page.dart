@@ -119,11 +119,8 @@ class _HomePageState extends State<HomePage> {
           ),
           IconButton(
             icon: const Icon(Icons.restaurant),
-            onPressed: () => Navigator.pushNamed(context, Routes.nutritionRecommendation),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, Routes.settings),
+            onPressed: () =>
+                Navigator.pushNamed(context, Routes.nutritionRecommendation),
           ),
         ],
         toolbarHeight: 64,
@@ -320,10 +317,7 @@ class _WorkoutsProgress extends StatelessWidget {
 class _CaloriesProgress extends StatelessWidget {
   final double size;
   final int refreshToken;
-  const _CaloriesProgress({
-    required this.size,
-    required this.refreshToken,
-  });
+  const _CaloriesProgress({required this.size, required this.refreshToken});
 
   @override
   Widget build(BuildContext context) {
@@ -407,9 +401,7 @@ class _RecentWorkoutsList extends StatelessWidget {
             for (final session in topSessions)
               Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    child: Icon(_iconForWorkout(session)),
-                  ),
+                  leading: CircleAvatar(child: Icon(_iconForWorkout(session))),
                   title: Text(_workoutTitle(session)),
                   subtitle: Text(_workoutSubtitle(session)),
                   trailing: const Icon(Icons.chevron_right),
@@ -489,7 +481,9 @@ class _WeeklyWorkoutStats {
     final parts = <String>[];
     if (timedMinutes > 0) parts.add('$timedMinutes min cardio');
     if (strengthSets > 0) parts.add('$strengthSets sets logged');
-    return parts.isEmpty ? 'Log workouts to build your streak.' : parts.join(' · ');
+    return parts.isEmpty
+        ? 'Log workouts to build your streak.'
+        : parts.join(' · ');
   }
 
   static _WeeklyWorkoutStats compute(List<Map<String, dynamic>> sessions) {
@@ -516,8 +510,8 @@ class _WeeklyWorkoutStats {
     final latest = sessions.first;
     final calories = (latest['caloriesBurned'] as num?)?.round();
     final lastDescription = calories == null
-      ? _workoutTitle(latest)
-      : '${_workoutTitle(latest)} · $calories kcal';
+        ? _workoutTitle(latest)
+        : '${_workoutTitle(latest)} · $calories kcal';
 
     return _WeeklyWorkoutStats(
       completed: completed,
@@ -547,9 +541,7 @@ String _workoutTitle(Map<String, dynamic> session) {
 
 String _workoutSubtitle(Map<String, dynamic> session) {
   final date = _parseWorkoutTimestamp(session);
-  final dateLabel = date == null
-      ? 'Recent'
-      : '${date.month}/${date.day}';
+  final dateLabel = date == null ? 'Recent' : '${date.month}/${date.day}';
   final calories = (session['caloriesBurned'] as num?)?.round() ?? 0;
   final type = (session['type'] as String?) ?? 'strength';
   final detail = type == 'timed'
@@ -599,11 +591,7 @@ class _RecommendationsRow extends StatelessWidget {
         ];
         if (isCompact) {
           return Column(
-            children: [
-              cards[0],
-              const SizedBox(height: 12),
-              cards[1],
-            ],
+            children: [cards[0], const SizedBox(height: 12), cards[1]],
           );
         }
         return Row(
