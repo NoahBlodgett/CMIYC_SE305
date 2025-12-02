@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:cache_me_if_you_can/mock/mock_data.dart' as mock;
+
+import 'package:cache_me_if_you_can/features/nutrition/data/services/daily_summary_service.dart';
+import 'package:cache_me_if_you_can/features/nutrition/nutrition_dependencies.dart';
 
 class ProgressWidget extends StatefulWidget {
   final double progress;
@@ -63,68 +65,62 @@ class CaloriesProgressLoader extends StatefulWidget {
 }
 
 class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
-  int? _totalCalories;
-  int? _targetCalories;
+  DailyNutritionSummary _summary = DailyNutritionSummary.empty;
   Object? _error;
   bool _loading = true;
+  StreamSubscription<DailyNutritionSummary>? _sub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _subscribe();
   }
 
-  Future<void> _load() async {
-    try {
-      final logs = await mock.fetchNutritionLogs(limit: 20);
-      Map<String, dynamic>? latest;
-      DateTime latestDate = DateTime.fromMillisecondsSinceEpoch(0);
-      for (final m in logs) {
-        final dStr = m['date']?.toString();
-        if (dStr == null) continue;
-        final parts = dStr.split('-');
-        if (parts.length == 3) {
-          final year = int.tryParse(parts[0]) ?? 0;
-          final month = int.tryParse(parts[1]) ?? 1;
-          final day = int.tryParse(parts[2]) ?? 1;
-          final dt = DateTime(year, month, day);
-          if (dt.isAfter(latestDate)) {
-            latestDate = dt;
-            latest = Map<String, dynamic>.from(m);
-          }
-        }
-      }
-
-      latest ??= logs.isNotEmpty ? Map<String, dynamic>.from(logs.first) : null;
-
-      if (!mounted) return;
-      if (latest == null) {
-        setState(() {
-          _loading = false;
-          _error = StateError('No nutrition logs available');
-        });
-        return;
-      }
-
-      final total = (latest['totalCalories'] is num)
-          ? (latest['totalCalories'] as num).toInt()
-          : int.tryParse(latest['totalCalories']?.toString() ?? '');
-      final target = (latest['targetCalories'] is num)
-          ? (latest['targetCalories'] as num).toInt()
-          : int.tryParse(latest['targetCalories']?.toString() ?? '');
-
-      setState(() {
-        _totalCalories = total ?? 0;
-        _targetCalories = (target == null || target <= 0) ? 2500 : target;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e;
-        _loading = false;
-      });
+  @override
+  void didUpdateWidget(covariant CaloriesProgressLoader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId || oldWidget.date != widget.date) {
+      _subscribe();
     }
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    final uid = widget.userId;
+    if (uid.isEmpty) {
+      setState(() {
+        _summary = DailyNutritionSummary.empty;
+        _loading = false;
+        _error = StateError('Missing user ID');
+      });
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    _sub = dailySummaryService
+        .streamFor(uid, widget.date ?? DateTime.now())
+        .listen((summary) {
+      if (!mounted) return;
+      setState(() {
+        _summary = summary;
+        _loading = false;
+        _error = null;
+      });
+    }, onError: (err) {
+      if (!mounted) return;
+      setState(() {
+        _error = err;
+        _loading = false;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -151,10 +147,8 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
       );
     }
 
-    final total = _totalCalories ?? 0;
-    final target = (_targetCalories == null || _targetCalories! <= 0)
-        ? 2500
-        : _targetCalories!;
+    final total = _summary.totalCalories;
+    final target = _summary.targetCalories <= 0 ? 2000 : _summary.targetCalories;
     final progress = target == 0 ? 0.0 : (total / target).clamp(0.0, 1.0);
     final value = '$total / $target';
 
