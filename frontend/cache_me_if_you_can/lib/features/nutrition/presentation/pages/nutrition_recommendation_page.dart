@@ -114,7 +114,7 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 2,
             offset: const Offset(0, 1),
           ),
@@ -128,14 +128,14 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
   }
 
   // Section header for nutrition
-  Widget _NutritionSectionHeader({required IconData icon, required String title, required Color tint}) {
+  Widget _nutritionSectionHeader({required IconData icon, required String title, required Color tint}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: tint.withOpacity(0.12),
+              color: tint.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.all(6),
@@ -152,76 +152,11 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
   }
 
   // Section card for nutrition
-  Widget _NutritionSectionCard({required Widget child}) {
+  Widget _nutritionSectionCard({required Widget child}) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(padding: const EdgeInsets.all(12.0), child: child),
-    );
-  }
-
-  // Reusable meal card component
-  Widget _mealCard({
-    required String mealType,
-    required IconData icon,
-    required Map recipe,
-    required Map targets,
-  }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      color: const Color(0xFF90A4AE), // Matte blue-grey, bolder
-      margin: const EdgeInsets.symmetric(vertical: 7),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.white, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(mealType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(recipe['name'] ?? 'N/A', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white)),
-            const SizedBox(height: 4),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _nutrientChip('Cals', recipe['calories'], const Color(0xFFB0BEC5)),
-                  const SizedBox(width: 8),
-                  _nutrientChip('P', recipe['protein_g'], const Color(0xFFB0BEC5), suffix: 'g'),
-                  const SizedBox(width: 8),
-                  _nutrientChip('C', recipe['carbs_g'], const Color(0xFFB0BEC5), suffix: 'g'),
-                  const SizedBox(width: 8),
-                  _nutrientChip('F', recipe['fat_g'], const Color(0xFFB0BEC5), suffix: 'g'),
-                ],
-              ),
-            ),
-            const Divider(height: 18, thickness: 1, color: Colors.white24),
-            Text('Targets:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _nutrientChip('Cals', targets['calories'], const Color(0xFFB0BEC5)),
-                  const SizedBox(width: 8),
-                  _nutrientChip('P', targets['protein_g'], const Color(0xFFB0BEC5), suffix: 'g'),
-                  const SizedBox(width: 8),
-                  _nutrientChip('C', targets['carbs_g'], const Color(0xFFB0BEC5), suffix: 'g'),
-                  const SizedBox(width: 8),
-                  _nutrientChip('F', targets['fat_g'], const Color(0xFFB0BEC5), suffix: 'g'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -240,12 +175,12 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
     List<Widget> widgets = [];
 
     // Top: Total Nutrition
-    widgets.add(_NutritionSectionHeader(
+    widgets.add(_nutritionSectionHeader(
       icon: Icons.bar_chart,
       title: 'Total Nutrition',
       tint: color.primary,
     ));
-    widgets.add(_NutritionSectionCard(
+    widgets.add(_nutritionSectionCard(
       child: Wrap(
         spacing: 10,
         runSpacing: 8,
@@ -264,12 +199,12 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
       final recipe = mealMap[type]?['recipe'] ?? {};
       final targets = mealMap[type]?['targets'] ?? {};
       // Remove outside meal section header for each meal block
-      // widgets.add(_NutritionSectionHeader(
+      // widgets.add(_nutritionSectionHeader(
       //   icon: mealType['icon'] as IconData,
       //   title: mealType['label'] as String,
       //   tint: color.secondary,
       // ));
-      widgets.add(_NutritionSectionCard(
+      widgets.add(_nutritionSectionCard(
         child: Container(
           decoration: BoxDecoration(
             color: color.surface,
