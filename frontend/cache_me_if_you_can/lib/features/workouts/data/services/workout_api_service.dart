@@ -13,10 +13,17 @@ class WorkoutApiService {
         (_ensurePositive(session.caloriesBurned) ?? 1).clamp(1, 5000).toDouble();
     final payload = <String, dynamic>{
       'user_id': session.userId,
+      'type': session.type.name,
       'duration': durationMinutes,
+      'duration_minutes': durationMinutes,
       'cals_burned': calories,
+      'calories_burned': calories,
       'date': Timestamp.fromDate(session.timestamp),
+      'activity_key': session.activityKey,
+      'activityKey': session.activityKey,
       'weight_lifted': _weightLiftedValue(session),
+      'sets': session.sets.map((s) => s.toMap()).toList(),
+      'name': session.name,
     };
     final movement = _movementPayload(session);
     if (movement != null) {
@@ -31,12 +38,24 @@ class WorkoutApiService {
         .where('user_id', isEqualTo: userId)
         .orderBy('date', descending: true)
         .get();
-    return snapshot.docs
-        .map((doc) => {
-              'id': doc.id,
-              ...doc.data(),
-            })
-        .toList();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      final duration = data['duration_minutes'] ?? data['duration'];
+      final calories = data['calories_burned'] ?? data['cals_burned'];
+      final sets = (data['sets'] as List?) ?? const [];
+      final type = (data['type'] as String?) ??
+          (sets.isNotEmpty ? 'strength' : 'timed');
+      return {
+        'id': doc.id,
+        'type': type,
+        'durationMinutes': duration,
+        'caloriesBurned': calories,
+        'activityKey': data['activity_key'] ?? data['activityKey'],
+        'sets': sets,
+        'name': data['name'],
+        'timestamp': (data['date'] as Timestamp?)?.toDate().toIso8601String(),
+      };
+    }).toList();
   }
 
   Future<Map<String, dynamic>> getWorkout(String id) async {

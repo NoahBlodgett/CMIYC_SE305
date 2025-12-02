@@ -276,8 +276,9 @@ class _StrengthLogPageState extends State<StrengthLogPage> {
                         child: _CounterTile(
                           label: _pendingBodyweight ? 'Bodyweight' : 'Weight',
                           value: _pendingBodyweight
-                              ? '—'
-                              : '$_pendingWeightLbs lbs',
+                              ? 'Body only'
+                              : _pendingWeightLbs.toString(),
+                          suffix: _pendingBodyweight ? null : 'lbs',
                           onIncrement: () => _adjustWeight(5),
                           onDecrement: () => _adjustWeight(-5),
                         ),
@@ -436,12 +437,14 @@ class _StrengthLogPageState extends State<StrengthLogPage> {
 class _CounterTile extends StatelessWidget {
   final String label;
   final String value;
+  final String? suffix;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
 
   const _CounterTile({
     required this.label,
     required this.value,
+    this.suffix,
     required this.onIncrement,
     required this.onDecrement,
   });
@@ -449,6 +452,15 @@ class _CounterTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final buttonStyle = IconButton.styleFrom(
+      shape: const CircleBorder(),
+      padding: const EdgeInsets.all(8),
+      visualDensity: VisualDensity.compact,
+    );
+    final valueStyle = theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+        ) ??
+        const TextStyle(fontSize: 22, fontWeight: FontWeight.w700);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -465,20 +477,43 @@ class _CounterTile extends StatelessWidget {
               IconButton(
                 onPressed: onDecrement,
                 icon: const Icon(Icons.remove_circle_outline),
+                style: buttonStyle,
               ),
               Expanded(
-                child: Center(
-                  child: Text(
-                    value,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: suffix == null
+                      ? Text(
+                          value,
+                          style: valueStyle,
+                          maxLines: 1,
+                          softWrap: false,
+                        )
+                      : RichText(
+                          text: TextSpan(
+                            style: valueStyle,
+                            children: [
+                              TextSpan(text: value),
+                              const WidgetSpan(
+                                child: SizedBox(width: 6),
+                                alignment: PlaceholderAlignment.middle,
+                              ),
+                              TextSpan(
+                                text: suffix,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.hintColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
               ),
               IconButton(
                 onPressed: onIncrement,
                 icon: const Icon(Icons.add_circle_outline),
+                style: buttonStyle,
               ),
             ],
           ),
