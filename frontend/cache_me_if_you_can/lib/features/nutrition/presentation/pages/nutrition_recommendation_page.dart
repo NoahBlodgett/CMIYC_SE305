@@ -1,11 +1,38 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
-// TODO: REMOVE HARDCODED BACKEND URL WHEN DEPLOYING OR USING EMULATOR
-const String backendBaseUrl = 'http://localhost:5001/se-305-db/us-central1/api';
-// END HARDCODED BACKEND URL
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:cache_me_if_you_can/mock/mock_data.dart' show fetchUserProfile;
+
+// Direct FastAPI endpoint used for local development
+final String mlServiceEndpoint = _resolveMlServiceEndpoint();
+const Duration _requestTimeout = Duration(seconds: 20);
+
+String _resolveMlServiceEndpoint() {
+  if (kIsWeb) {
+    return 'http://localhost:8000/nutrition/generate';
+  }
+  if (Platform.isAndroid) {
+    // Android emulator cannot reach host loopback, use special alias
+    return 'http://10.0.2.2:8000/nutrition/generate';
+  }
+  if (Platform.isIOS) {
+    return 'http://localhost:8000/nutrition/generate';
+  }
+  if (Platform.isWindows) {
+    return 'http://localhost:8000/nutrition/generate';
+  }
+  if (Platform.isMacOS || Platform.isLinux) {
+    return 'http://localhost:8000/nutrition/generate';
+  }
+  return 'http://localhost:8000/nutrition/generate';
+}
 
 class NutritionRecommendationPage extends StatefulWidget {
   const NutritionRecommendationPage({super.key});
@@ -311,45 +338,207 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
     setState(() => loading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      print('FetchWeekPlan: current user: \\${user?.uid}, email: \\${user?.email}');
+      print('FetchWeekPlan: current user: \${user?.uid}, email: \${user?.email}');
       final userId = user?.uid;
       if (userId == null) {
-        setState(() { weekPlan = {}; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not logged in')),
-        );
+        setState(() {
+          weekPlan = {};
+        });
+        _showSnack('User not logged in');
         return;
       }
-  final idToken = await user!.getIdToken();
-  print('Firebase ID Token: $idToken');
-      final url = '$backendBaseUrl/meals/$userId/generateWeekPlan';
-      print('Calling backend URL: $url');
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-      );
+      print('Calling ML service directly for user $userId');
+      final payload = await _buildMlPayload(userId);
+      debugPrint('Nutrition payload: $payload');
+
+      final response = await http
+          .post(
+            Uri.parse(mlServiceEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(_requestTimeout);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        // The meal plan is under data['mealPlan']['week_plan']
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         setState(() {
-          weekPlan = Map<String, dynamic>.from(data['mealPlan']['week_plan'] ?? {});
+          weekPlan = Map<String, dynamic>.from(
+            data['week_plan'] ?? data['weekPlan'] ?? const <String, dynamic>{},
+          );
         });
       } else {
-        setState(() { weekPlan = {}; });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${response.statusCode} ${response.reasonPhrase}')),
-        );
+        setState(() {
+          weekPlan = {};
+        });
+        _showSnack('Error ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown'}');
       }
+    } on TimeoutException {
+      setState(() {
+        weekPlan = {};
+      });
+      _showSnack('Nutrition service timed out. Is FastAPI running on port 8000?');
     } catch (e) {
-      setState(() { weekPlan = {}; });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Request failed: $e')),
-      );
+      setState(() {
+        weekPlan = {};
+      });
+      _showSnack('Request failed: $e');
     } finally {
       setState(() => loading = false);
     }
+  }
+
+  Future<Map<String, dynamic>> _buildMlPayload(String uid) async {
+    Map<String, dynamic>? firestoreData;
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      firestoreData = snapshot.data();
+    } catch (e, stack) {
+      debugPrint('Failed to load Firestore profile: $e\n$stack');
+    }
+
+    firestoreData ??= await fetchUserProfile();
+    return _transformUserData(firestoreData);
+  }
+
+  Map<String, dynamic> _transformUserData(Map<String, dynamic> source) {
+    final heightIn = _deriveHeightInches(source);
+    final weightLb = _deriveWeightPounds(source);
+    final age = _deriveAge(source);
+    final gender = _deriveGender(source);
+    final activity = _deriveActivityLevel(source);
+    final goal = _deriveGoal(source);
+    final allergies = _stringListFrom(source['allergies']);
+    final prefs = _stringListFrom(source['preferences']);
+
+    return {
+      'Height_in': heightIn,
+      'Weight_lb': weightLb,
+      'Age': age,
+      'Gender': gender,
+      'Activity_Level': activity,
+      'Goal': goal,
+      'allergies': allergies,
+      'preferences': prefs,
+    };
+  }
+
+  double _deriveHeightInches(Map<String, dynamic> data) {
+    final direct = _toDouble(data['Height_in']);
+    if (direct != null && direct > 0) return direct;
+
+    final cm = _toDouble(data['height_cm'] ?? data['Height_cm']);
+    if (cm != null && cm > 0) return cm / 2.54;
+
+    final fallback = _toDouble(data['height'] ?? data['height_in']);
+    if (fallback != null && fallback > 0) return fallback;
+
+    return 68; // reasonable default
+  }
+
+  double _deriveWeightPounds(Map<String, dynamic> data) {
+    final direct = _toDouble(data['Weight_lb'] ?? data['weight_lb']);
+    if (direct != null && direct > 0) return direct;
+
+    final kg = _toDouble(data['Weight_kg'] ?? data['weight_kg']);
+    if (kg != null && kg > 0) return kg * 2.20462;
+
+    final raw = _toDouble(data['weight']);
+    if (raw != null && raw > 0) {
+      final usesMetric = data['units_metric'] == true;
+      if (usesMetric || raw < 120) {
+        return raw * 2.20462;
+      }
+      return raw;
+    }
+
+    return 180;
+  }
+
+  int _deriveAge(Map<String, dynamic> data) {
+    final raw = data['Age'] ?? data['age'];
+    if (raw is num && raw > 0) return raw.toInt();
+    return 25;
+  }
+
+  int _deriveGender(Map<String, dynamic> data) {
+    final raw = data['Gender'] ?? data['gender'];
+    if (raw is int && (raw == 0 || raw == 1)) {
+      return raw;
+    }
+    if (raw is String) {
+      final normalized = raw.toLowerCase();
+      if (normalized.startsWith('f')) return 0;
+      if (normalized.startsWith('m')) return 1;
+    }
+    return 1; // default to male to match server expectations
+  }
+
+  int _deriveActivityLevel(Map<String, dynamic> data) {
+    final raw = data['Activity_Level'];
+    if (raw is int && raw >= 0 && raw <= 4) return raw;
+
+    final multiplier = _toDouble(data['activity_level'] ?? raw);
+    if (multiplier == null) return 2;
+
+    if (multiplier <= 1.2) return 0;
+    if (multiplier <= 1.375) return 1;
+    if (multiplier <= 1.55) return 2;
+    if (multiplier <= 1.725) return 3;
+    return 4;
+  }
+
+  int _deriveGoal(Map<String, dynamic> data) {
+    final raw = data['Goal'] ?? data['goal'] ?? data['weight_objective'];
+    if (raw is int && raw >= -1 && raw <= 1) {
+      return raw;
+    }
+    if (raw is String) {
+      switch (raw.toLowerCase()) {
+        case 'lose':
+        case 'weight_loss':
+        case 'lose_weight':
+          return -1;
+        case 'maintain':
+        case 'maintain_weight':
+          return 0;
+        case 'gain':
+        case 'gain_weight':
+        case 'build_muscle':
+          return 1;
+      }
+    }
+    return 0;
+  }
+
+  List<String> _stringListFrom(dynamic raw) {
+    if (raw is List) {
+      return raw.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).cast<String>().toList();
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw
+          .split(RegExp(r'[;,]'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return const <String>[];
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }
