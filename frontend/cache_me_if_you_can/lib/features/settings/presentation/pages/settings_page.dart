@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:settings_ui/settings_ui.dart';
-import 'package:cache_me_if_you_can/features/settings/presentation/widgets/user_profile.dart';
+import 'package:cache_me_if_you_can/features/settings/presentation/pages/profile_page.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -44,13 +44,7 @@ class SettingsPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => Scaffold(
-                          appBar: AppBar(title: const Text('Account')),
-                          body: const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: UserProfile(),
-                          ),
-                        ),
+                        builder: (_) => const ProfilePage(),
                       ),
                     );
                   },

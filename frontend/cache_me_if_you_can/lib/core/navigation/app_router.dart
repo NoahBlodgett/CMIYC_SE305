@@ -10,6 +10,7 @@ import 'package:cache_me_if_you_can/features/onboarding/presentation/pages/pages
 import 'package:cache_me_if_you_can/features/settings/presentation/pages/pages.dart';
 import 'package:cache_me_if_you_can/features/security/presentation/pages/pages.dart';
 import 'package:cache_me_if_you_can/features/workouts/presentation/pages/pages.dart';
+import 'package:cache_me_if_you_can/features/nutrition/presentation/pages/pages.dart';
 
 /// Centralized route names for the application.
 /// Use these constants with Navigator.pushNamed / popUntil.
@@ -19,8 +20,10 @@ abstract class Routes {
   static const signup = '/signup';
   static const onboarding = '/onboarding';
   static const home = '/home';
+  static const profile = '/profile';
   static const settings = '/settings';
   static const security = '/settings/security';
+  static const nutrition = '/nutrition';
   static const workouts = '/workouts';
   static const workoutLogTimed = '/workouts/log_timed';
   static const workoutLogStrength = '/workouts/log_strength';
@@ -51,6 +54,10 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const OnboardingPage());
       case Routes.settings:
         return MaterialPageRoute(builder: (_) => const SettingsPage());
+      case Routes.profile:
+        return MaterialPageRoute(builder: (_) => const ProfilePage());
+      case Routes.nutrition:
+        return MaterialPageRoute(builder: (_) => const NutritionPage());
       case Routes.security:
         return MaterialPageRoute(builder: (_) => const SecurityPage());
       case Routes.workouts:
