@@ -52,7 +52,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
   Future<void> _refreshRecentSessions() async {
     final next = _loadRecentSessions();
     if (!mounted) return;
-    setState(() => _recentSessionsFuture = next);
+    setState(() {
+      _recentSessionsFuture = next;
+    });
     await next;
   }
 
@@ -84,10 +86,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
             hasRecentPrograms: _recentPrograms.isNotEmpty,
           ),
           const SizedBox(height: 20),
-          _QuickLogCard(
-            onTimed: _openTimedLog,
-            onStrength: _openStrengthLog,
-          ),
+          _QuickLogCard(onTimed: _openTimedLog, onStrength: _openStrengthLog),
           const SizedBox(height: 24),
           _SectionHeader(
             icon: Icons.today_outlined,

@@ -29,8 +29,10 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream:
-            FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .snapshots(),
         builder: (context, snapshot) {
           final data = snapshot.data?.data() ?? const <String, dynamic>{};
           return ListView(
@@ -110,8 +112,7 @@ class _MetricsRow extends StatelessWidget {
         children: [
           Expanded(child: _metric('Age', age != null ? '$age' : '--')),
           Expanded(
-            child:
-                _metric('Height', heightIn != null ? '$heightIn in' : '--'),
+            child: _metric('Height', heightIn != null ? '$heightIn in' : '--'),
           ),
           Expanded(
             child: _metric('Weight', weightLb != null ? '$weightLb lb' : '--'),
@@ -122,22 +123,20 @@ class _MetricsRow extends StatelessWidget {
   }
 
   Widget _metric(String label, String value) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Text(
-                value,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text(label,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-        ),
-      );
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    ),
+  );
 }
 
 class _GoalsPreferencesCard extends StatelessWidget {
@@ -148,8 +147,8 @@ class _GoalsPreferencesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final goalCode = data['Goal'] ?? data['goal'];
     final activity = data['Activity_Level'] ?? data['activity_level'];
-    final allergies = (data['allergies'] as List?)?.join(', ');
-    final prefs = (data['preferences'] as List?)?.join(', ');
+    final allergies = _parseStringList(data['allergies']);
+    final prefs = _parseStringList(data['preferences']);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Card(
@@ -158,8 +157,10 @@ class _GoalsPreferencesCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Goals & Preferences',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Goals & Preferences',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 12,
@@ -167,9 +168,9 @@ class _GoalsPreferencesCard extends StatelessWidget {
                 children: [
                   _chip('Goal: ${_goalLabel(goalCode)}'),
                   if (activity != null) _chip('Activity: $activity'),
-                  if (allergies != null && allergies.isNotEmpty)
-                    _chip('Allergies: $allergies'),
-                  if (prefs != null && prefs.isNotEmpty) _chip('Prefs: $prefs'),
+                  if (allergies.isNotEmpty)
+                    _chip('Allergies: ${allergies.join(', ')}'),
+                  if (prefs.isNotEmpty) _chip('Prefs: ${prefs.join(', ')}'),
                 ],
               ),
             ],
@@ -193,6 +194,24 @@ class _GoalsPreferencesCard extends StatelessWidget {
   }
 
   Widget _chip(String label) => Chip(label: Text(label));
+
+  List<String> _parseStringList(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is List) {
+      return raw
+          .map((e) => e.toString())
+          .where((value) => value.isNotEmpty)
+          .toList();
+    }
+    if (raw is String && raw.isNotEmpty) {
+      return raw
+          .split(',')
+          .map((segment) => segment.trim())
+          .where((segment) => segment.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
 }
 
 class _WorkoutSummary extends StatelessWidget {
@@ -239,14 +258,15 @@ class _StatBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        value,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+    ],
+  );
 }
 
 class _NutritionOverview extends StatelessWidget {
@@ -279,8 +299,10 @@ class _NutritionOverview extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Nutrition Today',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Nutrition Today',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -324,13 +346,17 @@ class _BadgesStreaksCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Badges & Streaks',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Badges & Streaks',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: [for (final badge in badges) Chip(label: Text(badge))],
+                children: [
+                  for (final badge in badges) Chip(label: Text(badge)),
+                ],
               ),
               const SizedBox(height: 8),
               Text('Current streak: $streak days'),
@@ -355,8 +381,10 @@ class _HealthDataPlaceholder extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Synced Health Data',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Synced Health Data',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               const Text('Heart Rate: —  |  Steps (today): —  |  Sleep: —'),
               const SizedBox(height: 4),
@@ -392,8 +420,10 @@ class _HistorySection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Recent Activity',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Recent Activity',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: mealsQuery.snapshots(),
@@ -411,9 +441,7 @@ class _HistorySection extends StatelessWidget {
                     return const Text('No recent nutrition entries.');
                   }
                   return Column(
-                    children: [
-                      for (final doc in docs) _historyRow(doc.data()),
-                    ],
+                    children: [for (final doc in docs) _historyRow(doc.data())],
                   );
                 },
               ),
@@ -453,8 +481,10 @@ class _AiRecommendationsSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Personalized Recommendations',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Personalized Recommendations',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               const Text('AI-generated workout & meal plans will appear here.'),
               const SizedBox(height: 8),
