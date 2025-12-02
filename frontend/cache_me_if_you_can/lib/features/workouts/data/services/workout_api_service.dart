@@ -1,34 +1,13 @@
-import 'dart:convert';
-
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/workout_session.dart';
 
 class WorkoutApiService {
-  final String baseUrl; // e.g., 'https://us-central1-yourproject.cloudfunctions.net'
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  WorkoutApiService();
 
-  WorkoutApiService(this.baseUrl);
-
-  Future<Map<String, String>> _authHeaders({bool includeJson = true}) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw Exception('User not authenticated');
-    }
-    final token = await user.getIdToken();
-    if (token == null) {
-      throw Exception('Unable to fetch auth token');
-    }
-    return {
-      if (includeJson) 'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Future<void> logWorkout(WorkoutSession session) async {
-    final headers = await _authHeaders();
     final durationMinutes = _durationValue(session);
     final calories =
         (_ensurePositive(session.caloriesBurned) ?? 1).clamp(1, 5000).toDouble();
@@ -36,79 +15,44 @@ class WorkoutApiService {
       'user_id': session.userId,
       'duration': durationMinutes,
       'cals_burned': calories,
-      'date': session.timestamp.toIso8601String(),
+      'date': Timestamp.fromDate(session.timestamp),
       'weight_lifted': _weightLiftedValue(session),
     };
     final movement = _movementPayload(session);
     if (movement != null) {
       payload['movement'] = movement;
     }
-    final response = await http
-        .post(
-          Uri.parse('$baseUrl/workouts'),
-          headers: headers,
-          body: jsonEncode(payload),
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode != 201) {
-      throw Exception('Failed to log workout: ${response.body}');
-    }
+    await _db.collection('workouts').add(payload);
   }
 
   Future<List<Map<String, dynamic>>> getUserWorkouts(String userId) async {
-    final headers = await _authHeaders(includeJson: false);
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/workouts/user/$userId'),
-          headers: headers,
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch workouts: ${response.body}');
-    }
-    final List<dynamic> data = jsonDecode(response.body);
-    return data.cast<Map<String, dynamic>>();
+    final snapshot = await _db
+        .collection('workouts')
+        .where('user_id', isEqualTo: userId)
+        .orderBy('date', descending: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => {
+              'id': doc.id,
+              ...doc.data(),
+            })
+        .toList();
   }
 
   Future<Map<String, dynamic>> getWorkout(String id) async {
-    final headers = await _authHeaders(includeJson: false);
-    final response = await http
-        .get(
-          Uri.parse('$baseUrl/workouts/$id'),
-          headers: headers,
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch workout: ${response.body}');
+    final doc = await _db.collection('workouts').doc(id).get();
+    if (!doc.exists) {
+      throw Exception('Workout not found');
     }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    return {'id': doc.id, ...doc.data()!};
   }
 
   Future<void> updateWorkout(String id, Map<String, dynamic> updateData) async {
-    final headers = await _authHeaders();
-    final response = await http
-        .put(
-          Uri.parse('$baseUrl/workouts/$id'),
-          headers: headers,
-          body: jsonEncode(updateData),
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to update workout: ${response.body}');
-    }
+    await _db.collection('workouts').doc(id).update(updateData);
   }
 
   Future<void> deleteWorkout(String id) async {
-    final headers = await _authHeaders(includeJson: false);
-    final response = await http
-        .delete(
-          Uri.parse('$baseUrl/workouts/$id'),
-          headers: headers,
-        )
-        .timeout(const Duration(seconds: 10));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to delete workout: ${response.body}');
-    }
+    await _db.collection('workouts').doc(id).delete();
   }
 
   int _durationValue(WorkoutSession session) {
