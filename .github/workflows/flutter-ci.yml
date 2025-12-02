@@ -2,7 +2,7 @@ name: Flutter CI
 
 on:
   push:
-    branches: [main, setupFrontEnd]
+    branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/flutter-ci.yml"
@@ -39,6 +39,67 @@ jobs:
 
       - name: Run tests
         run: flutter test --no-pub
+
+  # integration_test_android:
+  #   name: Integration Tests (Android)
+  #   needs: analyze_and_test
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: frontend/cache_me_if_you_can
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Flutter
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         channel: "stable"
+
+  #     - name: Setup Java
+  #       uses: actions/setup-java@v3
+  #       with:
+  #         distribution: "temurin"
+  #         java-version: "17"
+
+  #     - name: Pub get
+  #       run: flutter pub get
+
+  #     - name: Enable KVM (for faster emulator)
+  #       run: |
+  #         echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+  #         sudo udevadm control --reload-rules
+  #         sudo udevadm trigger --name-match=kvm
+
+  #     - name: AVD cache
+  #       uses: actions/cache@v4
+  #       id: avd-cache
+  #       with:
+  #         path: |
+  #           ~/.android/avd/*
+  #           ~/.android/adb*
+  #         key: avd-33
+
+  #     - name: Run integration tests
+  #       uses: reactivecircus/android-emulator-runner@v2.30.1
+  #       with:
+  #         api-level: 33
+  #         arch: x86_64
+  #         target: google_apis
+  #         avd-name: test
+  #         profile: pixel_6
+  #         pre-emulator-launch-script: |
+  #           mkdir -p ~/.android/avd
+  #           mkdir -p ~/.android/avd/test.avd
+  #         emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+  #         disable-animations: true
+  #         script: |
+  #           # Clean project to reduce disk usage before build
+  #           cd frontend/cache_me_if_you_can && flutter clean
+  #           cd frontend/cache_me_if_you_can && rm -rf build .dart_tool
+  #           cd frontend/cache_me_if_you_can && flutter pub get
+  #           # Run a representative integration test to keep CI lightweight
+  #           cd frontend/cache_me_if_you_can && flutter test integration_test/workout_flow_test.dart --timeout=3m
 
   build_android:
     name: Build Android (APK)
