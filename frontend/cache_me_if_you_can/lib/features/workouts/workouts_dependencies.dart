@@ -4,6 +4,7 @@ import 'data/services/user_metrics_service.dart';
 import 'data/services/workout_api_service.dart';
 import 'data/services/weekly_workout_summary_service.dart';
 import 'data/services/workout_feedback_service.dart';
+import 'data/services/daily_workout_calories_service.dart';
 
 final WorkoutApiService workoutApiService = WorkoutApiService();
 final MetCalorieService metCalorieService = MetCalorieService.instance;
@@ -15,3 +16,5 @@ final UserMetricsService userMetricsService = UserMetricsService(
 final WorkoutFeedbackService workoutFeedbackService = WorkoutFeedbackService(
   db: FirebaseFirestore.instance,
 );
+final DailyWorkoutCaloriesService dailyWorkoutCaloriesService =
+    DailyWorkoutCaloriesService(db: FirebaseFirestore.instance);
