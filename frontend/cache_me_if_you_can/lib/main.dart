@@ -22,8 +22,15 @@ Future<void> main() async {
     FlutterError.dumpErrorToConsole(details);
   };
   ui.PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('UNCAUGHT (platformDispatcher): $error');
-    debugPrintStack(stackTrace: stack);
+    // Only log sanitized summary in production to avoid leaking sensitive details
+    debugPrint('UNCAUGHT error occurred');
+    // Log detailed error and stack trace only in debug mode
+    if (kDebugMode) {
+      debugPrint('Error: $error');
+      debugPrintStack(stackTrace: stack);
+    }
+    // In production, send error and stack to secure crash reporting (e.g., Crashlytics)
+    // FirebaseCrashlytics.instance.recordError(error, stack);
     return true; // handled -> prevents silent engine kill
   };
   assert(() {
