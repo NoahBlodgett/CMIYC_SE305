@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../mock/mock_data.dart';
 import '../../../../utils/program_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../workouts/workouts_dependencies.dart';
+import '../../domain/entities/workout_session.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 
 class WorkoutPage extends StatefulWidget {
@@ -13,14 +16,15 @@ class WorkoutPage extends StatefulWidget {
 class _WorkoutPageState extends State<WorkoutPage> {
   String? _currentProgramName;
   List<String> _recentPrograms = const [];
-  bool _recentOpen = false;
-  bool _newOpen = false;
+  late Future<List<Map<String, dynamic>>> _recentSessionsFuture;
+  bool get _isSignedIn => FirebaseAuth.instance.currentUser != null;
 
   @override
   void initState() {
     super.initState();
     _loadProgramName();
     _loadRecentPrograms();
+    _recentSessionsFuture = _loadRecentSessions();
   }
 
   Future<void> _loadProgramName() async {
@@ -39,144 +43,97 @@ class _WorkoutPageState extends State<WorkoutPage> {
     } catch (_) {}
   }
 
+  Future<List<Map<String, dynamic>>> _loadRecentSessions() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const [];
+    return workoutApiService.getUserWorkouts(uid, limit: 15);
+  }
+
+  Future<void> _refreshRecentSessions() async {
+    final next = _loadRecentSessions();
+    if (!mounted) return;
+    setState(() => _recentSessionsFuture = next);
+    await next;
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Workouts'), centerTitle: false),
+      appBar: AppBar(
+        title: const Text('Workouts'),
+        centerTitle: false,
+        actions: [
+          IconButton(
+            tooltip: 'Feedback insights',
+            icon: const Icon(Icons.insights_outlined),
+            onPressed: _openFeedbackInsights,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          _SectionHeader(
-            icon: Icons.calendar_month_sharp,
-            title: 'Program',
-            tint: color.primary,
+          _ProgramHeroCard(
+            programName: _currentProgramName,
+            onPrimaryTap: _showQuickStartSheet,
+            onSwitchTap: _openProgramSwitcher,
+            onCreateAiTap: _onCreateAiProgram,
+            onBuildTap: _onBuildProgram,
+            hasRecentPrograms: _recentPrograms.isNotEmpty,
           ),
-          _SectionCard(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _currentProgramName ?? 'No active program',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Active program',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Theme.of(context).hintColor),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: 'Recent programs',
-                    onOpened: () => setState(() => _recentOpen = true),
-                    onCanceled: () => setState(() => _recentOpen = false),
-                    onSelected: (selected) async {
-                      setState(() => _recentOpen = false);
-                      if (selected == '__view_all__') {
-                        await _onViewRecentPrograms();
-                        return;
-                      }
-                      if (selected.isNotEmpty && selected != '__none__') {
-                        await ProgramState.saveActiveProgramName(selected);
-                        if (mounted) {
-                          setState(() => _currentProgramName = selected);
-                        }
-                      }
-                    },
-                    itemBuilder: (context) {
-                      if (_recentPrograms.isEmpty) {
-                        return const [
-                          PopupMenuItem<String>(
-                            enabled: false,
-                            value: '__none__',
-                            child: Text('No recent programs'),
-                          ),
-                        ];
-                      }
-                      return [
-                        ..._recentPrograms.map(
-                          (p) => PopupMenuItem<String>(
-                            value: p,
-                            child: Text(
-                              p,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        const PopupMenuDivider(height: 8),
-                        const PopupMenuItem<String>(
-                          value: '__view_all__',
-                          child: Text('View all'),
-                        ),
-                      ];
-                    },
-                    icon: Icon(
-                      _recentOpen ? Icons.close : Icons.dehaze,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  PopupMenuButton<String>(
-                    tooltip: 'New program',
-                    onOpened: () => setState(() => _newOpen = true),
-                    onCanceled: () => setState(() => _newOpen = false),
-                    onSelected: (selected) async {
-                      setState(() => _newOpen = false);
-                      switch (selected) {
-                        case 'ai':
-                          await _onCreateAiProgram();
-                          break;
-                        case 'build':
-                          await _onBuildProgram();
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem<String>(
-                        value: 'ai',
-                        child: Text('New AI Program'),
-                      ),
-                      PopupMenuItem<String>(
-                        value: 'build',
-                        child: Text('Build Program'),
-                      ),
-                    ],
-                    icon: Icon(_newOpen ? Icons.close : Icons.add, size: 22),
-                  ),
-                ],
-              ),
-            ),
+          const SizedBox(height: 20),
+          _QuickLogCard(
+            onTimed: _openTimedLog,
+            onStrength: _openStrengthLog,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           _SectionHeader(
             icon: Icons.today_outlined,
             title: "Today's plan",
             tint: color.tertiary,
+            actionLabel: 'View plan',
+            onActionTap: _openPlanOverview,
           ),
           _SectionCard(
             child: Column(
               children: [
-                _ExerciseTile(title: 'Warm-up jog', details: '10 min · Easy'),
+                _ExerciseTile(
+                  title: 'Warm-up jog',
+                  details: '10 min · Easy',
+                  icon: Icons.directions_run,
+                  tint: color.primary,
+                ),
                 const Divider(height: 1),
-                _ExerciseTile(title: 'Bench press', details: '4 x 8 @ 60%'),
+                _ExerciseTile(
+                  title: 'Bench press',
+                  details: '4 x 8 @ 60%',
+                  icon: Icons.fitness_center,
+                  tint: color.secondary,
+                ),
                 const Divider(height: 1),
-                _ExerciseTile(title: 'Lat pulldown', details: '3 x 10'),
+                _ExerciseTile(
+                  title: 'Lat pulldown',
+                  details: '3 x 10',
+                  icon: Icons.cable,
+                  tint: color.tertiary,
+                ),
                 const Divider(height: 1),
-                _ExerciseTile(title: 'Plank', details: '3 x 45s'),
+                _ExerciseTile(
+                  title: 'Plank',
+                  details: '3 x 45s',
+                  icon: Icons.crop_square,
+                  tint: color.primary,
+                ),
               ],
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _openPlanOverview,
+              child: const Text('View plan details'),
             ),
           ),
           const SizedBox(height: 16),
@@ -184,31 +141,21 @@ class _WorkoutPageState extends State<WorkoutPage> {
             icon: Icons.history,
             title: 'Recent sessions',
             tint: color.secondary,
+            actionLabel: 'See all',
+            onActionTap: _openRecentSessionsPage,
           ),
-          _SectionCard(
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 3,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, i) {
-                final items = [
-                  ('Upper body', '45 min · 520 kcal'),
-                  ('Legs & core', '38 min · 430 kcal'),
-                  ('HIIT cardio', '22 min · 310 kcal'),
-                ];
-                final (title, meta) = items[i];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: color.primary.withValues(alpha: 0.15),
-                    child: Icon(Icons.check, color: color.primary),
-                  ),
-                  title: Text(title),
-                  subtitle: Text(meta),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
-                );
-              },
+          _RecentSessionsCard(
+            color: color,
+            isSignedIn: _isSignedIn,
+            workoutsFuture: _recentSessionsFuture,
+            onLogTimed: _openTimedLog,
+            onViewSessions: _openRecentSessionsPage,
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _openRecentSessionsPage,
+              child: const Text('Open recent sessions'),
             ),
           ),
         ],
@@ -222,7 +169,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       Routes.workoutRecent,
     );
     if (selected != null && mounted) {
-      setState(() => _currentProgramName = selected);
+      await _setActiveProgram(selected);
     }
   }
 
@@ -232,7 +179,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       Routes.workoutAi,
     );
     if (created != null && mounted) {
-      setState(() => _currentProgramName = created);
+      await _setActiveProgram(created);
     }
   }
 
@@ -242,8 +189,499 @@ class _WorkoutPageState extends State<WorkoutPage> {
       Routes.workoutBuild,
     );
     if (built != null && mounted) {
-      setState(() => _currentProgramName = built);
+      await _setActiveProgram(built);
     }
+  }
+
+  Future<void> _setActiveProgram(String name) async {
+    await ProgramState.saveActiveProgramName(name);
+    if (!mounted) return;
+    setState(() => _currentProgramName = name);
+  }
+
+  Future<void> _openProgramSwitcher() async {
+    final selection = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Switch program',
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_recentPrograms.isEmpty)
+                  ListTile(
+                    leading: const Icon(Icons.history_toggle_off),
+                    title: const Text('No recent programs yet'),
+                    subtitle: const Text('Create a plan to see it here.'),
+                    dense: true,
+                  )
+                else
+                  ..._recentPrograms.map(
+                    (program) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today),
+                      title: Text(
+                        program,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => Navigator.pop(ctx, program),
+                    ),
+                  ),
+                const Divider(height: 24),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.view_list_outlined),
+                  title: const Text('View all programs'),
+                  onTap: () => Navigator.pop(ctx, '__view_all__'),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.auto_awesome),
+                  title: const Text('Generate with AI'),
+                  onTap: () => Navigator.pop(ctx, '__ai__'),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.build_outlined),
+                  title: const Text('Build manually'),
+                  onTap: () => Navigator.pop(ctx, '__build__'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selection == null) return;
+    switch (selection) {
+      case '__view_all__':
+        await _onViewRecentPrograms();
+        return;
+      case '__ai__':
+        await _onCreateAiProgram();
+        return;
+      case '__build__':
+        await _onBuildProgram();
+        return;
+      default:
+        await _setActiveProgram(selection);
+    }
+  }
+
+  Future<void> _openPlanOverview() async {
+    await Navigator.pushNamed(context, Routes.workoutPlan);
+  }
+
+  Future<void> _openRecentSessionsPage() async {
+    await Navigator.pushNamed(context, Routes.workoutSessions);
+    await _refreshRecentSessions();
+  }
+
+  Future<void> _openFeedbackInsights() async {
+    await Navigator.pushNamed(context, Routes.workoutFeedback);
+  }
+
+  Future<void> _openTimedLog() async {
+    await Navigator.pushNamed(context, Routes.workoutLogTimed);
+    await _refreshRecentSessions();
+  }
+
+  Future<void> _openStrengthLog() async {
+    await Navigator.pushNamed(context, Routes.workoutLogStrength);
+    await _refreshRecentSessions();
+  }
+
+  Future<void> _showQuickStartSheet() async {
+    final selection = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.timer),
+                title: const Text('Timed activity'),
+                subtitle: const Text('Intervals, cardio, conditioning'),
+                onTap: () => Navigator.pop(ctx, 'timed'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: const Text('Strength session'),
+                subtitle: const Text('Sets, reps, weightlifting'),
+                onTap: () => Navigator.pop(ctx, 'strength'),
+              ),
+              const SizedBox(height: 4),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || selection == null) return;
+    if (selection == 'timed') {
+      await _openTimedLog();
+    } else {
+      await _openStrengthLog();
+    }
+  }
+}
+
+class _ProgramHeroCard extends StatelessWidget {
+  final String? programName;
+  final VoidCallback onPrimaryTap;
+  final VoidCallback onSwitchTap;
+  final VoidCallback onCreateAiTap;
+  final VoidCallback onBuildTap;
+  final bool hasRecentPrograms;
+
+  const _ProgramHeroCard({
+    required this.programName,
+    required this.onPrimaryTap,
+    required this.onSwitchTap,
+    required this.onCreateAiTap,
+    required this.onBuildTap,
+    required this.hasRecentPrograms,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final primaryLabel = programName == null
+        ? 'Start your first activity'
+        : 'Start today\'s activity';
+    final subtitle = programName == null
+        ? 'Pick a focus to unlock a guided weekly plan.'
+        : 'Dial in, stay on pace, and log sets as you go.';
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [scheme.primary, scheme.primaryContainer],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Active program',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: Colors.white70,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      programName ?? 'No plan selected',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'ai':
+                      onCreateAiTap();
+                      break;
+                    case 'build':
+                      onBuildTap();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem<String>(
+                    value: 'ai',
+                    child: Text('New AI program'),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'build',
+                    child: Text('Build manually'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: onPrimaryTap,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(primaryLabel),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: scheme.primary,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              textStyle: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.swap_horiz),
+                  label: Text(
+                    hasRecentPrograms ? 'Switch plan' : 'Find a plan',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: hasRecentPrograms ? onSwitchTap : onCreateAiTap,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('AI coach'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: onCreateAiTap,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickLogCard extends StatelessWidget {
+  final Future<void> Function() onTimed;
+  final Future<void> Function() onStrength;
+
+  const _QuickLogCard({required this.onTimed, required this.onStrength});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick log',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () async => onTimed(),
+                  icon: const Icon(Icons.timer_outlined),
+                  label: const Text('Timed activity'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () async => onStrength(),
+                  icon: const Icon(Icons.fitness_center),
+                  label: const Text('Strength session'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Popular picks',
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _QuickShortcutChip(
+                label: 'Intervals',
+                icon: Icons.bolt,
+                onTap: onTimed,
+              ),
+              _QuickShortcutChip(
+                label: 'Recovery walk',
+                icon: Icons.directions_walk,
+                onTap: onTimed,
+              ),
+              _QuickShortcutChip(
+                label: 'Push day',
+                icon: Icons.monitor_weight,
+                onTap: onStrength,
+              ),
+              _QuickShortcutChip(
+                label: 'Supersets',
+                icon: Icons.all_inclusive,
+                onTap: onStrength,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickShortcutChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Future<void> Function() onTap;
+  const _QuickShortcutChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      onPressed: () async => onTap(),
+    );
+  }
+}
+
+class _RecentSessionsCard extends StatelessWidget {
+  final ColorScheme color;
+  final bool isSignedIn;
+  final Future<List<Map<String, dynamic>>> workoutsFuture;
+  final Future<void> Function() onLogTimed;
+  final Future<void> Function() onViewSessions;
+
+  const _RecentSessionsCard({
+    required this.color,
+    required this.isSignedIn,
+    required this.workoutsFuture,
+    required this.onLogTimed,
+    required this.onViewSessions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isSignedIn) {
+      return const _SectionCard(child: Text('Sign in to view sessions'));
+    }
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: workoutsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _SectionCard(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          );
+        }
+        final data = snapshot.data ?? const [];
+        if (data.isEmpty) {
+          return _SectionCard(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('No sessions logged'),
+              subtitle: const Text('Log your first workout to see it here.'),
+              trailing: ElevatedButton(
+                onPressed: () async => onLogTimed(),
+                child: const Text('Log'),
+              ),
+            ),
+          );
+        }
+        return _SectionCard(
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: data.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final s = data[i];
+              final type = s['type'] == 'timed'
+                  ? WorkoutSessionType.timed
+                  : WorkoutSessionType.strength;
+              final title =
+                  s['name'] ??
+                  (type == WorkoutSessionType.timed
+                      ? (s['activityKey'] ?? 'Timed session')
+                      : 'Strength session');
+              final meta = type == WorkoutSessionType.timed
+                  ? '${s['durationMinutes'] ?? 0} min · ${(s['caloriesBurned'] ?? 0).round()} kcal'
+                  : '${(s['sets'] as List?)?.length ?? 0} sets · ${(s['sets'] as List?)?.fold<int>(0, (sum, set) => sum + ((set['reps'] ?? 0) as int)) ?? 0} reps · ${(s['caloriesBurned'] ?? 0).round()} kcal';
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: color.primary.withAlpha(38),
+                  child: Icon(
+                    type == WorkoutSessionType.timed
+                        ? Icons.timer
+                        : Icons.fitness_center,
+                    color: color.primary,
+                  ),
+                ),
+                title: Text(title),
+                subtitle: Text(meta),
+                trailing: IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () async => onViewSessions(),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -251,35 +689,50 @@ class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final Color tint;
+  final String? actionLabel;
+  final VoidCallback? onActionTap;
   const _SectionHeader({
     required this.icon,
     required this.title,
     required this.tint,
+    this.actionLabel,
+    this.onActionTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(6),
-            child: Icon(icon, color: tint),
+    return Row(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: tint.withAlpha(31),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 10),
-          Text(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, color: tint),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
             title,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-        ],
-      ),
+        ),
+        if (actionLabel != null && onActionTap != null)
+          TextButton(
+            onPressed: onActionTap,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(actionLabel!),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -300,14 +753,33 @@ class _SectionCard extends StatelessWidget {
 class _ExerciseTile extends StatelessWidget {
   final String title;
   final String details;
-  const _ExerciseTile({required this.title, required this.details});
+  final IconData icon;
+  final Color tint;
+  const _ExerciseTile({
+    required this.title,
+    required this.details,
+    required this.icon,
+    required this.tint,
+  });
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(title),
+      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+      leading: CircleAvatar(
+        backgroundColor: tint.withAlpha(28),
+        child: Icon(icon, color: tint),
+      ),
+      title: Text(
+        title,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      ),
       subtitle: Text(details),
-      trailing: const Icon(Icons.more_horiz),
+      trailing: IconButton(
+        icon: const Icon(Icons.more_horiz),
+        onPressed: () {},
+      ),
       onTap: () {},
     );
   }

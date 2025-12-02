@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -10,8 +11,21 @@ import 'styles/styles.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 import 'firebase_options.dart';
 
+import 'features/auth/presentation/pages/pages.dart';
+import 'features/home/presentation/pages/pages.dart';
+import 'features/onboarding/presentation/pages/pages.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Global error handlers to capture uncaught exceptions early in startup
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.dumpErrorToConsole(details);
+  };
+  ui.PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('UNCAUGHT (platformDispatcher): $error');
+    debugPrintStack(stackTrace: stack);
+    return true; // handled -> prevents silent engine kill
+  };
   assert(() {
     // Simple timestamp markers to diagnose startup latency in debug builds.
     final start = DateTime.now();
@@ -191,33 +205,119 @@ class ErrorApp extends StatelessWidget {
   }
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
 
   @override
   Widget build(BuildContext context) {
-    final router = AppRouter();
-    return FutureBuilder<String>(
-      future: router.resolveInitialRoute(),
-      builder: (context, snap) {
-        final initial = snap.data;
-        assert(() {
-          if (snap.connectionState == ConnectionState.done) {
-            debugPrint(
-              '[StartupTrace] Initial route resolved to "$initial" at ${DateTime.now()}',
-            );
-          }
-          return true;
-        }());
-        return MaterialApp(
-          title: 'Momentum',
-          theme: AppTheme.lightTheme,
-          debugShowCheckedModeBanner: false,
-          initialRoute: initial ?? Routes.root,
-          onGenerateRoute: router.onGenerateRoute,
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _GateSplash();
+        }
+        final user = snapshot.data;
+        if (user == null) {
+          return const LoginPage();
+        }
+        return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get(),
+          builder: (context, docSnap) {
+            if (docSnap.connectionState == ConnectionState.waiting) {
+              return const _GateSplash();
+            }
+            if (docSnap.hasError) {
+              return _GateError(
+                message: 'Could not load your profile. Tap to try again.',
+                onRetry: () => FirebaseAuth.instance.signOut(),
+              );
+            }
+            final data = docSnap.data?.data();
+            final onboardingComplete = data?['onboarding_completed'] == true;
+            if (!onboardingComplete) {
+              return const OnboardingPage();
+            }
+            return const HomePage();
+          },
         );
       },
     );
   }
 }
+
+class _GateSplash extends StatelessWidget {
+  const _GateSplash();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _GateError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _GateError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // router already declared below, removed duplicate
+    // Always start at the login page as the base route
+    final router = AppRouter();
+    return MaterialApp(
+      title: 'Momentum',
+      theme: AppTheme.lightTheme,
+      debugShowCheckedModeBanner: false,
+      home: const _AuthGate(),
+      onGenerateRoute: router.onGenerateRoute,
+      builder: (context, child) {
+        ErrorWidget.builder = (FlutterErrorDetails details) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(child: Text('Global error: \\${details.exceptionAsString()}')),
+          );
+        };
+        try {
+          return child!;
+        } catch (e) {
+          debugPrint('[MyApp] Exception in builder: $e');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushNamedAndRemoveUntil(Routes.login, (route) => false);
+          });
+          return const SizedBox.shrink();
+        }
+      },
+    );
+  }
+}
 // HomePage lives in features/home; routing handled by AppRouter.
+
+// _SplashScreen removed as it is no longer used

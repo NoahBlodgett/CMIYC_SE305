@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:io' show Platform;
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+// Removed unused Platform import
+// Removed unused firebase_auth and cloud_firestore imports
+// Removed unused Google sign-in import
+// Removed unused Apple sign-in import
+// Removed unused font_awesome_flutter import
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 import 'package:cache_me_if_you_can/features/auth/auth_dependencies.dart';
 
@@ -51,27 +50,18 @@ class _CreateUserPageState extends State<CreateUserPage> {
     setState(() {
       _errorText = null;
     });
-    if (!_formKey.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() {
       _submitting = true;
     });
 
     try {
       // Use repository for email/password sign-up
-      final created = await authRepository.signUpWithEmail(
+      await authRepository.signUpWithEmail(
         _emailCtrl.text.trim(),
         _passwordCtrl.text,
       );
-
-      // Create initial user document
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(created.uid)
-          .set({
-            'email': created.email ?? _emailCtrl.text.trim(),
-            'onboarding_completed': false,
-          }, SetOptions(merge: true));
-
+      // Do NOT create Firestore doc here. Route directly to onboarding.
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, Routes.onboarding);
     } catch (e) {
@@ -131,28 +121,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                       : const Text('Create account'),
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const FaIcon(FontAwesomeIcons.google),
-                      onPressed: _submitting ? null : _createWithGoogle,
-                      label: const Text('Continue with Google'),
-                    ),
-                  ),
-                ],
-              ),
-              if (Platform.isIOS || Platform.isMacOS) ...[
-                const SizedBox(height: 8),
-                SignInWithAppleButton(
-                  onPressed: () {
-                    if (_submitting) return;
-                    _createWithApple();
-                  },
-                  style: SignInWithAppleButtonStyle.black,
-                ),
-              ],
+              // Google/Apple sign-in UI removed
             ],
           ),
         ),
@@ -160,82 +129,5 @@ class _CreateUserPageState extends State<CreateUserPage> {
     );
   }
 
-  Future<void> _createWithGoogle() async {
-    setState(() => _errorText = null);
-    setState(() => _submitting = true);
-    try {
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return; // canceled
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-        accessToken: googleAuth.accessToken,
-      );
-      final cred = await FirebaseAuth.instance.signInWithCredential(credential);
-      final user = cred.user;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': user.email ?? _emailCtrl.text.trim(),
-          'onboarding_completed': false,
-        }, SetOptions(merge: true));
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, Routes.onboarding);
-      }
-    } on FirebaseAuthException catch (e) {
-      setState(() => _errorText = e.message ?? 'Google sign-in failed');
-    } catch (e) {
-      setState(() => _errorText = e.toString());
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
-  Future<void> _createWithApple() async {
-    if (!(Platform.isIOS || Platform.isMacOS)) {
-      setState(() => _errorText = 'Apple sign-in is only available on Apple');
-      return;
-    }
-    setState(() => _errorText = null);
-    setState(() => _submitting = true);
-    try {
-      final isAvailable = await SignInWithApple.isAvailable();
-      if (!isAvailable) {
-        setState(() => _errorText = 'Sign in with Apple not available');
-        return;
-      }
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-      final oauth = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        accessToken: appleCredential.authorizationCode,
-      );
-      final cred = await FirebaseAuth.instance.signInWithCredential(oauth);
-      final user = cred.user;
-      if (user != null) {
-        final display = [
-          appleCredential.givenName,
-          appleCredential.familyName,
-        ].where((e) => (e ?? '').isNotEmpty).join(' ');
-        if (display.isNotEmpty) {
-          await user.updateDisplayName(display);
-        }
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'email': user.email ?? '',
-          'onboarding_completed': false,
-        }, SetOptions(merge: true));
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, Routes.onboarding);
-      }
-    } on FirebaseAuthException catch (e) {
-      setState(() => _errorText = e.message ?? 'Apple sign-in failed');
-    } catch (e) {
-      setState(() => _errorText = e.toString());
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
+  // Google/Apple sign-in methods removed
 }

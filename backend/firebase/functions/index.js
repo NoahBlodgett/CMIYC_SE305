@@ -1,8 +1,7 @@
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
-const { onRequest } = require("firebase-functions/v2/https");
-const { logger } = require("firebase-functions");
+const functions = require("firebase-functions");
 const express = require("express");
 
 // Initialize Firebase Admin
@@ -28,6 +27,7 @@ const mealGenerationRoutes = require('./routes/mealGenerationRoutes');
 // Register routes
 expressApp.use('/users', userRoutes);d
 expressApp.use('/meals', mealGenerationRoutes);
+expressApp.use('/workouts', workoutLogRoutes);
 
 
 // Export the Express app as a Cloud Function
