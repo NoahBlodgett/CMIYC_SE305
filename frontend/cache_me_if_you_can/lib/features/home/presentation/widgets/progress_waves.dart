@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'package:cache_me_if_you_can/features/nutrition/data/services/daily_summary_service.dart';
-import 'package:cache_me_if_you_can/features/nutrition/nutrition_dependencies.dart';
+import 'package:cache_me_if_you_can/features/workouts/data/services/daily_workout_calories_service.dart';
+import 'package:cache_me_if_you_can/features/workouts/workouts_dependencies.dart';
 
 class ProgressWidget extends StatefulWidget {
   final double progress;
@@ -43,6 +43,7 @@ class CaloriesProgressLoader extends StatefulWidget {
   final Duration wavePeriod;
   final double amplitudeFactor;
   final bool showCenterText;
+  final int targetCalories;
   final Widget Function(BuildContext context, int total, int target)?
   bottomBuilder;
 
@@ -57,6 +58,7 @@ class CaloriesProgressLoader extends StatefulWidget {
     this.wavePeriod = const Duration(seconds: 20),
     this.amplitudeFactor = 0.03,
     this.showCenterText = true,
+    this.targetCalories = 500,
     this.bottomBuilder,
   });
 
@@ -65,10 +67,10 @@ class CaloriesProgressLoader extends StatefulWidget {
 }
 
 class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
-  DailyNutritionSummary _summary = DailyNutritionSummary.empty;
+  DailyWorkoutCaloriesSummary _summary = DailyWorkoutCaloriesSummary.empty;
   Object? _error;
   bool _loading = true;
-  StreamSubscription<DailyNutritionSummary>? _sub;
+  StreamSubscription<DailyWorkoutCaloriesSummary>? _sub;
 
   @override
   void initState() {
@@ -89,7 +91,7 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
     final uid = widget.userId;
     if (uid.isEmpty) {
       setState(() {
-        _summary = DailyNutritionSummary.empty;
+        _summary = DailyWorkoutCaloriesSummary.empty;
         _loading = false;
         _error = StateError('Missing user ID');
       });
@@ -99,9 +101,9 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
       _loading = true;
       _error = null;
     });
-    _sub = dailySummaryService
-        .streamFor(uid, widget.date ?? DateTime.now())
-        .listen((summary) {
+    _sub = dailyWorkoutCaloriesService
+      .streamFor(uid, widget.date ?? DateTime.now())
+      .listen((summary) {
       if (!mounted) return;
       setState(() {
         _summary = summary;
@@ -147,9 +149,9 @@ class _CaloriesProgressLoaderState extends State<CaloriesProgressLoader> {
       );
     }
 
-    final total = _summary.totalCalories;
-    final target = _summary.targetCalories <= 0 ? 2000 : _summary.targetCalories;
-    final progress = target == 0 ? 0.0 : (total / target).clamp(0.0, 1.0);
+    final total = _summary.totalCalories.round();
+    final target = widget.targetCalories > 0 ? widget.targetCalories : 1;
+    final progress = (total / target).clamp(0.0, 1.0);
     final value = '$total / $target';
 
     final circle = ProgressWidget(
