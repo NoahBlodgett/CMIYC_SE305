@@ -29,6 +29,9 @@ async function createWeekPlan(req, res){
         }
 
         let userData = userDoc.data();
+        
+        // Debug: Log the raw user data
+        console.log('Raw user data from Firestore:', JSON.stringify(userData, null, 2));
 
         // Find weight goal by userID
         const goalQuery = await db.collection('weight_goals')
@@ -36,16 +39,29 @@ async function createWeekPlan(req, res){
             .limit(1)
             .get();
 
-        if (goalQuery.empty)
-        {
-            return res.status(404).json({
-                error: 'Weight goal does not exist for this user'
+        if (goalQuery.empty) {
+            // Create a default weight goal document for this user
+            await db.collection('weight_goals').add({
+                user_id: userID,
+                weight_objective: "MAINTAIN_WEIGHT" // or "LOSE_WEIGHT" / "GAIN_WEIGHT"
             });
+            // Re-run the query to get the new goal
+            const newGoalQuery = await db.collection('weight_goals')
+                .where('user_id', '==', userID)
+                .limit(1)
+                .get();
+            if (newGoalQuery.empty) {
+                return res.status(404).json({
+                    error: 'Failed to create weight goal for this user'
+                });
+            }
+            goalDoc = newGoalQuery.docs[0];
+            goalData = goalDoc.data();
+        } else {
+            // Get the goal data
+            var goalDoc = goalQuery.docs[0];
+            var goalData = goalDoc.data();
         }
-
-        // Get the goal data
-        const goalDoc = goalQuery.docs[0];
-        let goalData = goalDoc.data();
 
         let goal = 0;
 
@@ -65,18 +81,49 @@ async function createWeekPlan(req, res){
         }
         
         // Create the transformation after getting userData and goalData
+        // Convert height from cm to inches (1 inch = 2.54 cm)
+        const heightInInches = userData.height_cm ? userData.height_cm / 2.54 : null;
+        // Weight conversion: check units_metric flag
+        // If units_metric is false, weight is already in pounds
+        // If units_metric is true, convert from kg to pounds
+        const weightInPounds = userData.units_metric === false 
+            ? userData.weight 
+            : (userData.weight ? userData.weight * 2.20462 : null);
+        
+        // Map activity level multiplier to category (0-4)
+        // Multipliers: 1.2 (sedentary), 1.375 (light), 1.55 (moderate), 1.725 (active), 1.9 (very active)
+        // Categories: 0 (sedentary), 1 (light), 2 (moderate), 3 (active), 4 (very active)
+        let activityCategory = 2; // default to moderate
+        if (userData.activity_level <= 1.2) {
+            activityCategory = 0;
+        } else if (userData.activity_level <= 1.375) {
+            activityCategory = 1;
+        } else if (userData.activity_level <= 1.55) {
+            activityCategory = 2;
+        } else if (userData.activity_level <= 1.725) {
+            activityCategory = 3;
+        } else {
+            activityCategory = 4;
+        }
+        
         const transformedUserData = {
-            Height_in: userData.height,
-            Weight_lb: userData.weight,
+            Height_in: heightInInches,
+            Weight_lb: weightInPounds,
             Age: userData.age,
             Gender: userData.gender === "male" ? 1 : 0,  // Convert string to number
-            Activity_Level: userData.activity_level,
+            Activity_Level: activityCategory,  // Use category instead of multiplier
             Goal: goal,
-            allergies: userData.allergies || [],  // Default empty array if missing
+            allergies: Array.isArray(userData.allergies) ? userData.allergies : [],  // Handle string or array
             preferences: userData.preferences || []  // Default empty array if missing
         };
+        
+        // Debug: Log the transformed data being sent to ML service
+        console.log('Transformed data for ML service:', JSON.stringify(transformedUserData, null, 2));
 
         const response = await axios.post(`${ML_SERVICE_URL}/nutrition/generate`, transformedUserData);
+        
+        // Debug: Log successful response
+        console.log('ML service response received successfully');
 
         /*
         DATA RETURNED

@@ -55,7 +55,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
     setState(() {
       _recentSessionsFuture = next;
     });
-    await next;
   }
 
   @override

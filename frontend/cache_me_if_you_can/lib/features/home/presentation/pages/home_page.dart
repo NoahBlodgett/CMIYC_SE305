@@ -118,9 +118,8 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Navigator.pushNamed(context, Routes.profile),
           ),
           IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, Routes.settings),
-          ),
+            icon: const Icon(Icons.restaurant),
+            onPressed: () => Navigator.pushNamed(context, Routes.nutritionRecommendation),
         ],
         toolbarHeight: 64,
       ),
