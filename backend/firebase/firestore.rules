@@ -44,30 +44,60 @@ service cloud.firestore {
       return !hasKey('onboarding_completed') || (request.resource.data.onboarding_completed is bool);
     }
 
-    function validWorkoutDuration() {
-      return request.resource.data.duration is int && request.resource.data.duration > 0 && request.resource.data.duration <= 600;
+    function workoutDurationValue(map) {
+      return map.keys().hasAny(['duration'])
+        ? map.duration
+        : (map.keys().hasAny(['duration_minutes']) ? map.duration_minutes : null);
     }
 
-    function validWorkoutCalories() {
-      return request.resource.data.cals_burned is number && request.resource.data.cals_burned > 0;
+    function validWorkoutDuration(map) {
+      let value = workoutDurationValue(map);
+      return value is int && value > 0 && value <= 600;
     }
 
-    function validWorkoutTimestamp() {
-      return request.resource.data.date is timestamp;
+    function workoutCaloriesValue(map) {
+      return map.keys().hasAny(['cals_burned'])
+        ? map.cals_burned
+        : (map.keys().hasAny(['calories_burned']) ? map.calories_burned : null);
     }
 
-    function validWorkoutWeight() {
-      return request.resource.data.weight_lifted is number && request.resource.data.weight_lifted >= 0;
+    function validWorkoutCalories(map) {
+      let value = workoutCaloriesValue(map);
+      return value is number && value > 0;
     }
 
-    function validMovement() {
-      return !hasKey('movement') || (
-        request.resource.data.movement is map &&
-        request.resource.data.movement.name is string && request.resource.data.movement.name.size() > 0 &&
-        request.resource.data.movement.muscle_group is string && request.resource.data.movement.muscle_group.size() > 0 &&
-        request.resource.data.movement.sets is int && request.resource.data.movement.sets > 0 &&
-        (!request.resource.data.movement.keys().hasAny(['reps']) || (request.resource.data.movement.reps is int && request.resource.data.movement.reps > 0))
+    function validWorkoutTimestamp(map) {
+      return map.keys().hasAny(['date']) && map.date is timestamp;
+    }
+
+    function validWorkoutWeight(map) {
+      return !map.keys().hasAny(['weight_lifted']) || (map.weight_lifted is number && map.weight_lifted >= 0);
+    }
+
+    function validMovement(map) {
+      return !map.keys().hasAny(['movement']) || (
+        map.movement is map &&
+        map.movement.name is string && map.movement.name.size() > 0 &&
+        map.movement.muscle_group is string && map.movement.muscle_group.size() > 0 &&
+        map.movement.sets is int && map.movement.sets > 0 &&
+        (!map.movement.keys().hasAny(['reps']) || (map.movement.reps is int && map.movement.reps > 0))
       );
+    }
+
+    function validWorkoutName(map) {
+      return !map.keys().hasAny(['name']) || (map.name is string && map.name.size() > 0 && map.name.size() <= 100);
+    }
+
+    function validWorkoutType(map) {
+      return !map.keys().hasAny(['type']) || (map.type in ['timed', 'strength']);
+    }
+
+    function validActivityKey(map) {
+      return !map.keys().hasAny(['activity_key']) || (map.activity_key is string && map.activity_key.size() > 0 && map.activity_key.size() <= 120);
+    }
+
+    function validWorkoutSets(map) {
+      return !map.keys().hasAny(['sets']) || (map.sets is list && map.sets.size() <= 100);
     }
 
     // Allow users to read/write their own user document
@@ -78,22 +108,30 @@ service cloud.firestore {
     match /workouts/{workoutId} {
       allow create: if isSignedIn() &&
         request.resource.data.user_id == request.auth.uid &&
-        validWorkoutDuration() &&
-        validWorkoutCalories() &&
-        validWorkoutTimestamp() &&
-        validWorkoutWeight() &&
-        validMovement();
+        validWorkoutDuration(request.resource.data) &&
+        validWorkoutCalories(request.resource.data) &&
+        validWorkoutTimestamp(request.resource.data) &&
+        validWorkoutWeight(request.resource.data) &&
+        validMovement(request.resource.data) &&
+        validWorkoutName(request.resource.data) &&
+        validWorkoutType(request.resource.data) &&
+        validActivityKey(request.resource.data) &&
+        validWorkoutSets(request.resource.data);
 
       allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
 
       allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid &&
         (request.resource == null || (
-          (!hasKey('user_id') || request.resource.data.user_id == resource.data.user_id) &&
-          (!hasKey('duration') || validWorkoutDuration()) &&
-          (!hasKey('cals_burned') || validWorkoutCalories()) &&
-          (!hasKey('date') || validWorkoutTimestamp()) &&
-          (!hasKey('weight_lifted') || validWorkoutWeight()) &&
-          validMovement()
+          (!request.resource.data.keys().hasAny(['user_id']) || request.resource.data.user_id == resource.data.user_id) &&
+          (!request.resource.data.keys().hasAny(['duration', 'duration_minutes']) || validWorkoutDuration(request.resource.data)) &&
+          (!request.resource.data.keys().hasAny(['cals_burned', 'calories_burned']) || validWorkoutCalories(request.resource.data)) &&
+          (!request.resource.data.keys().hasAny(['date']) || validWorkoutTimestamp(request.resource.data)) &&
+          (!request.resource.data.keys().hasAny(['weight_lifted']) || validWorkoutWeight(request.resource.data)) &&
+          validMovement(request.resource.data) &&
+          validWorkoutName(request.resource.data) &&
+          validWorkoutType(request.resource.data) &&
+          validActivityKey(request.resource.data) &&
+          validWorkoutSets(request.resource.data)
         ));
     }
 

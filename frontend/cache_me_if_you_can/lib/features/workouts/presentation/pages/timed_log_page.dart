@@ -113,6 +113,12 @@ class _TimedLogPageState extends State<TimedLogPage> {
     });
   }
 
+  void _applySuggestion(String key) {
+    _activityCtrl.text = key;
+    _updateSuggestions(key);
+    FocusScope.of(context).unfocus();
+  }
+
   void _startTimer() {
     if (_timerRunning) return;
     _ticker?.cancel();
@@ -158,6 +164,71 @@ class _TimedLogPageState extends State<TimedLogPage> {
         .where((part) => part.isNotEmpty)
         .map((part) => part[0].toUpperCase() + part.substring(1))
         .join(' ');
+  }
+
+  String _baseActivityKey(String key) {
+    final parts = key.split('_');
+    final buffer = <String>[];
+    for (final part in parts) {
+      if (part == 'mph') break;
+      if (RegExp(r'^\d').hasMatch(part)) break;
+      buffer.add(part);
+    }
+    return buffer.isEmpty ? key : buffer.join('_');
+  }
+
+  List<_SuggestionGroup> _groupSuggestions(List<String> suggestions) {
+    final lookup = <String, _SuggestionGroup>{};
+    final ordered = <_SuggestionGroup>[];
+    for (final key in suggestions) {
+      final base = _baseActivityKey(key);
+      final group = lookup.putIfAbsent(
+        base,
+        () {
+          final created = _SuggestionGroup(baseKey: base, keys: []);
+          ordered.add(created);
+          return created;
+        },
+      );
+      group.keys.add(key);
+    }
+    return ordered;
+  }
+
+  Future<void> _showVariantPicker(_SuggestionGroup group) async {
+    final selection = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            children: [
+              ListTile(
+                leading: const Icon(Icons.north_east),
+                title: Text(
+                  'Select pace for ${_humanizeActivityKey(group.baseKey)}',
+                ),
+                subtitle: const Text('Pick the speed that fits your effort'),
+              ),
+              const Divider(),
+              ...group.keys.map(
+                (key) => ListTile(
+                  leading: const Icon(Icons.speed),
+                  title: Text(_humanizeActivityKey(key)),
+                  subtitle: Text(key),
+                  onTap: () => Navigator.pop(ctx, key),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (selection == null) return;
+    _applySuggestion(selection);
   }
 
   void _showSnack(String message) {
@@ -311,6 +382,9 @@ class _TimedLogPageState extends State<TimedLogPage> {
     final durationMinutes = _effectiveDurationMinutes;
     final theme = Theme.of(context);
 
+    final groupedSuggestions = _suggestions.isEmpty
+        ? const <_SuggestionGroup>[]
+        : _groupSuggestions(_suggestions);
     return Scaffold(
       appBar: AppBar(title: const Text('Log Timed Activity')),
       body: ListView(
@@ -425,33 +499,36 @@ class _TimedLogPageState extends State<TimedLogPage> {
                   (shortcut) => ActionChip(
                     avatar: Icon(shortcut.icon, size: 18),
                     label: Text(shortcut.label),
-                    onPressed: () {
-                      _activityCtrl.text = shortcut.key;
-                      _updateSuggestions(shortcut.key);
-                      FocusScope.of(context).unfocus();
-                    },
+                    onPressed: () => _applySuggestion(shortcut.key),
                   ),
                 )
                 .toList(),
           ),
-          if (_suggestions.isNotEmpty) ...[
+          if (groupedSuggestions.isNotEmpty) ...[
             const SizedBox(height: 8),
             Card(
               child: Column(
-                children: _suggestions
-                    .map(
-                      (s) => ListTile(
+                children: ListTile.divideTiles(
+                  context: context,
+                  tiles: groupedSuggestions.map((group) {
+                    if (group.keys.length == 1) {
+                      final key = group.keys.first;
+                      return ListTile(
                         leading: const Icon(Icons.north_east),
-                        title: Text(_humanizeActivityKey(s)),
-                        subtitle: Text(s),
-                        onTap: () {
-                          _activityCtrl.text = s;
-                          _updateSuggestions(s);
-                          FocusScope.of(context).unfocus();
-                        },
-                      ),
-                    )
-                    .toList(),
+                        title: Text(_humanizeActivityKey(key)),
+                        subtitle: Text(key),
+                        onTap: () => _applySuggestion(key),
+                      );
+                    }
+                    return ListTile(
+                      leading: const Icon(Icons.north_east),
+                      title: Text(_humanizeActivityKey(group.baseKey)),
+                      subtitle: Text('${group.keys.length} speed options'),
+                      trailing: const Icon(Icons.unfold_more),
+                      onTap: () => _showVariantPicker(group),
+                    );
+                  }),
+                ).toList(),
               ),
             ),
           ],
@@ -643,6 +720,12 @@ class _ActivityShortcut {
     required this.key,
     required this.icon,
   });
+}
+
+class _SuggestionGroup {
+  final String baseKey;
+  final List<String> keys;
+  _SuggestionGroup({required this.baseKey, required this.keys});
 }
 
 class _FeedbackPayload {
