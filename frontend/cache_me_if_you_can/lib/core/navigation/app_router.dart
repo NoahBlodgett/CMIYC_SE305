@@ -129,8 +129,9 @@ class AppRouter {
         '[resolveInitialRoute] Firestore user doc: ${data?.toString()}',
       );
       // If doc is missing or onboarding_completed is not true, go to onboarding
-      if (data == null || data['onboarding_completed'] != true)
+      if (data == null || data['onboarding_completed'] != true) {
         return Routes.onboarding;
+      }
       return Routes.home;
     } catch (e, stack) {
       debugPrint('[resolveInitialRoute] Exception: $e\n$stack');

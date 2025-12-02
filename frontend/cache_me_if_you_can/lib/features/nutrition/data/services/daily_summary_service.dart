@@ -42,9 +42,9 @@ class DailySummaryService {
         .where('timestamp', isLessThan: Timestamp.fromDate(end));
 
     await for (final snapshot in query.snapshots()) {
-      final totalCalories = snapshot.docs.fold<int>(0, (sum, doc) {
+      final totalCalories = snapshot.docs.fold<int>(0, (runningTotal, doc) {
         final raw = doc.data()['calories'];
-        return sum + (raw is num ? raw.round() : 0);
+        return runningTotal + (raw is num ? raw.round() : 0);
       });
       yield DailyNutritionSummary(
         totalCalories: totalCalories,

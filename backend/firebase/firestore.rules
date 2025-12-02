@@ -105,8 +105,12 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
-    match /workouts/{workoutId} {
-      allow create: if isSignedIn() &&
+    match /users/{userId}/nutrition_entries/{entryId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /users/{userId}/workout_sessions/{sessionId} {
+      allow create: if isOwner(userId) &&
         request.resource.data.user_id == request.auth.uid &&
         validWorkoutDuration(request.resource.data) &&
         validWorkoutCalories(request.resource.data) &&
@@ -118,11 +122,50 @@ service cloud.firestore {
         validActivityKey(request.resource.data) &&
         validWorkoutSets(request.resource.data);
 
-      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow read: if isOwner(userId);
 
-      allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid &&
+      allow update, delete: if isOwner(userId) &&
+        resource.data.user_id == request.auth.uid &&
         (request.resource == null || (
           (!request.resource.data.keys().hasAny(['user_id']) || request.resource.data.user_id == resource.data.user_id) &&
+          (!request.resource.data.keys().hasAny(['duration', 'duration_minutes']) || validWorkoutDuration(request.resource.data)) &&
+          (!request.resource.data.keys().hasAny(['cals_burned', 'calories_burned']) || validWorkoutCalories(request.resource.data)) &&
+          (!request.resource.data.keys().hasAny(['date']) || validWorkoutTimestamp(request.resource.data)) &&
+          (!request.resource.data.keys().hasAny(['weight_lifted']) || validWorkoutWeight(request.resource.data)) &&
+          validMovement(request.resource.data) &&
+          validWorkoutName(request.resource.data) &&
+          validWorkoutType(request.resource.data) &&
+          validActivityKey(request.resource.data) &&
+          validWorkoutSets(request.resource.data)
+        ));
+    }
+
+    match /workouts/{workoutId} {
+      allow create: if isSignedIn() &&
+        ((request.resource.data.user_id == request.auth.uid) ||
+         (request.resource.data.userId == request.auth.uid)) &&
+        validWorkoutDuration(request.resource.data) &&
+        validWorkoutCalories(request.resource.data) &&
+        validWorkoutTimestamp(request.resource.data) &&
+        validWorkoutWeight(request.resource.data) &&
+        validMovement(request.resource.data) &&
+        validWorkoutName(request.resource.data) &&
+        validWorkoutType(request.resource.data) &&
+        validActivityKey(request.resource.data) &&
+        validWorkoutSets(request.resource.data);
+
+      allow read: if isSignedIn() &&
+        ((resource.data.user_id == request.auth.uid) ||
+         (resource.data.userId == request.auth.uid));
+
+      allow update, delete: if isSignedIn() &&
+        ((resource.data.user_id == request.auth.uid) ||
+         (resource.data.userId == request.auth.uid)) &&
+        (request.resource == null || (
+          (!request.resource.data.keys().hasAny(['user_id']) ||
+            request.resource.data.user_id == request.auth.uid) &&
+          (!request.resource.data.keys().hasAny(['userId']) ||
+            request.resource.data.userId == request.auth.uid) &&
           (!request.resource.data.keys().hasAny(['duration', 'duration_minutes']) || validWorkoutDuration(request.resource.data)) &&
           (!request.resource.data.keys().hasAny(['cals_burned', 'calories_burned']) || validWorkoutCalories(request.resource.data)) &&
           (!request.resource.data.keys().hasAny(['date']) || validWorkoutTimestamp(request.resource.data)) &&
