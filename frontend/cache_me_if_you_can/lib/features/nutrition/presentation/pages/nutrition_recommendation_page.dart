@@ -338,7 +338,7 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
     setState(() => loading = true);
     try {
       final user = FirebaseAuth.instance.currentUser;
-      print('FetchWeekPlan: current user: \${user?.uid}, email: \${user?.email}');
+      //print('FetchWeekPlan: current user: \${user?.uid}, email: \${user?.email}');
       final userId = user?.uid;
       if (userId == null) {
         setState(() {
@@ -347,7 +347,7 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
         _showSnack('User not logged in');
         return;
       }
-      print('Calling ML service directly for user $userId');
+      //print('Calling ML service directly for user $userId');
       final payload = await _buildMlPayload(userId);
       debugPrint('Nutrition payload: $payload');
 
