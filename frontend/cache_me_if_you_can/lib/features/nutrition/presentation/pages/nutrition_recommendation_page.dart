@@ -22,42 +22,6 @@ class _NutritionRecommendationPageState extends State<NutritionRecommendationPag
   Map<String, dynamic> weekPlan = {};
   bool loading = false;
 
-  // Quick dev sign-in for testing
-  @override
-  void initState() {
-    super.initState();
-    _devSignIn();
-  }
-
-  // TODO: REMOVE DEV SIGN-IN CODE BELOW WHEN DONE TESTING
-  Future<void> _devSignIn() async {
-    try {
-      // Replace with your test account credentials
-      final userCred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: 'admin2@admin.com',
-        password: 'S2301na*',
-      );
-      print('Signed in as: \\${userCred.user?.uid}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Signed in as: \\${userCred.user?.email}')),
-      );
-    } catch (e) {
-      print('Sign-in error: \\${e.toString()}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign-in error: \\${e.toString()}')),
-      );
-    }
-    // Print current user after sign-in attempt
-    final currentUser = FirebaseAuth.instance.currentUser;
-    print('Current user: \\${currentUser?.uid}, email: \\${currentUser?.email}');
-    if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No user is currently logged in.')),
-      );
-    }
-  }
-  // END DEV SIGN-IN CODE
-
   @override
   Widget build(BuildContext context) {
     final currentDay = days[selectedDayIndex];
