@@ -104,19 +104,15 @@ class _MetricsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final age = data['Age'] ?? data['age'];
-    final heightIn = data['Height_in'] ?? data['height'];
-    final weightLb = data['Weight_lb'] ?? data['weight'];
+    final heightLabel = _heightDisplay();
+    final weightLabel = _weightDisplay();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           Expanded(child: _metric('Age', age != null ? '$age' : '--')),
-          Expanded(
-            child: _metric('Height', heightIn != null ? '$heightIn in' : '--'),
-          ),
-          Expanded(
-            child: _metric('Weight', weightLb != null ? '$weightLb lb' : '--'),
-          ),
+          Expanded(child: _metric('Height', heightLabel)),
+          Expanded(child: _metric('Weight', weightLabel)),
         ],
       ),
     );
@@ -137,6 +133,60 @@ class _MetricsRow extends StatelessWidget {
       ),
     ),
   );
+
+  String _heightDisplay() {
+    final inches = _heightInches();
+    if (inches != null && inches > 0) {
+      final totalInches = inches.round();
+      final feet = totalInches ~/ 12;
+      final remaining = totalInches.remainder(12);
+      return "$feet' $remaining\"";
+    }
+    return '--';
+  }
+
+  String _weightDisplay() {
+    final weightLb = data['Weight_lb'] ?? data['weight_lb'] ?? data['weight'];
+    if (weightLb != null && weightLb.toString().isNotEmpty) {
+      return '${weightLb.toString()} lb';
+    }
+    final weightKg = data['weight_kg'] ?? data['Weight_kg'];
+    final kgValue = _parseDouble(weightKg);
+    if (kgValue != null) {
+      final pounds = (kgValue * 2.20462).round();
+      return '$pounds lb (${kgValue.toStringAsFixed(1)} kg)';
+    }
+    return '--';
+  }
+
+  double? _heightInches() {
+    const inchKeys = ['Height_in', 'height_in', 'heightIn', 'height_inches'];
+    for (final key in inchKeys) {
+      final value = _parseDouble(data[key]);
+      if (value != null && value > 0) {
+        if (value > 30) return value; // assume already inches
+        return value * 12; // treat small values as feet
+      }
+    }
+    final cm = _heightCentimeters();
+    if (cm != null) return cm / 2.54;
+    return null;
+  }
+
+  double? _heightCentimeters() {
+    const cmKeys = ['height_cm', 'Height_cm'];
+    for (final key in cmKeys) {
+      final value = _parseDouble(data[key]);
+      if (value != null && value > 0) return value;
+    }
+    return null;
+  }
+
+  double? _parseDouble(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    return double.tryParse(raw.toString());
+  }
 }
 
 class _GoalsPreferencesCard extends StatelessWidget {
