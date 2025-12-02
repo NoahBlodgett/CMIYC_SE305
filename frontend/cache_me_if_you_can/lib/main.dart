@@ -11,6 +11,10 @@ import 'styles/styles.dart';
 import 'package:cache_me_if_you_can/core/navigation/app_router.dart';
 import 'firebase_options.dart';
 
+import 'features/auth/presentation/pages/pages.dart';
+import 'features/home/presentation/pages/pages.dart';
+import 'features/onboarding/presentation/pages/pages.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Global error handlers to capture uncaught exceptions early in startup
@@ -201,6 +205,85 @@ class ErrorApp extends StatelessWidget {
   }
 }
 
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _GateSplash();
+        }
+        final user = snapshot.data;
+        if (user == null) {
+          return const LoginPage();
+        }
+        return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get(),
+          builder: (context, docSnap) {
+            if (docSnap.connectionState == ConnectionState.waiting) {
+              return const _GateSplash();
+            }
+            if (docSnap.hasError) {
+              return _GateError(
+                message: 'Could not load your profile. Tap to try again.',
+                onRetry: () => FirebaseAuth.instance.signOut(),
+              );
+            }
+            final data = docSnap.data?.data();
+            final onboardingComplete = data?['onboarding_completed'] == true;
+            if (!onboardingComplete) {
+              return const OnboardingPage();
+            }
+            return const HomePage();
+          },
+        );
+      },
+    );
+  }
+}
+
+class _GateSplash extends StatelessWidget {
+  const _GateSplash();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _GateError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _GateError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -213,7 +296,7 @@ class MyApp extends StatelessWidget {
       title: 'Momentum',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      initialRoute: Routes.login,
+      home: const _AuthGate(),
       onGenerateRoute: router.onGenerateRoute,
       builder: (context, child) {
         ErrorWidget.builder = (FlutterErrorDetails details) {

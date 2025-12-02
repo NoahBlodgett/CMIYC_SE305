@@ -44,9 +44,57 @@ service cloud.firestore {
       return !hasKey('onboarding_completed') || (request.resource.data.onboarding_completed is bool);
     }
 
+    function validWorkoutDuration() {
+      return request.resource.data.duration is int && request.resource.data.duration > 0 && request.resource.data.duration <= 600;
+    }
+
+    function validWorkoutCalories() {
+      return request.resource.data.cals_burned is number && request.resource.data.cals_burned > 0;
+    }
+
+    function validWorkoutTimestamp() {
+      return request.resource.data.date is timestamp;
+    }
+
+    function validWorkoutWeight() {
+      return request.resource.data.weight_lifted is number && request.resource.data.weight_lifted >= 0;
+    }
+
+    function validMovement() {
+      return !hasKey('movement') || (
+        request.resource.data.movement is map &&
+        request.resource.data.movement.name is string && request.resource.data.movement.name.size() > 0 &&
+        request.resource.data.movement.muscle_group is string && request.resource.data.movement.muscle_group.size() > 0 &&
+        request.resource.data.movement.sets is int && request.resource.data.movement.sets > 0 &&
+        (!request.resource.data.movement.keys().hasAny(['reps']) || (request.resource.data.movement.reps is int && request.resource.data.movement.reps > 0))
+      );
+    }
+
     // Allow users to read/write their own user document
     match /users/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    match /workouts/{workoutId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.user_id == request.auth.uid &&
+        validWorkoutDuration() &&
+        validWorkoutCalories() &&
+        validWorkoutTimestamp() &&
+        validWorkoutWeight() &&
+        validMovement();
+
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+
+      allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid &&
+        (request.resource == null || (
+          (!hasKey('user_id') || request.resource.data.user_id == resource.data.user_id) &&
+          (!hasKey('duration') || validWorkoutDuration()) &&
+          (!hasKey('cals_burned') || validWorkoutCalories()) &&
+          (!hasKey('date') || validWorkoutTimestamp()) &&
+          (!hasKey('weight_lifted') || validWorkoutWeight()) &&
+          validMovement()
+        ));
     }
 
     // Deny everything else by default
