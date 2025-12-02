@@ -300,9 +300,11 @@ class MyApp extends StatelessWidget {
       onGenerateRoute: router.onGenerateRoute,
       builder: (context, child) {
         ErrorWidget.builder = (FlutterErrorDetails details) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Error')),
-            body: Center(child: Text('Global error: \\${details.exceptionAsString()}')),
+          // Log the full error details for debugging (secure logs)
+          debugPrint('[MyApp] Global error: ${details.exceptionAsString()}');
+          // Show generic message to users to avoid exposing internal details
+          return const Scaffold(
+            body: Center(child: Text('An unexpected error occurred.')),
           );
         };
         try {
