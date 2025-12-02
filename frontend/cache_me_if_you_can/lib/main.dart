@@ -29,8 +29,8 @@ Future<void> main() async {
       debugPrint('Error: $error');
       debugPrintStack(stackTrace: stack);
     }
-    // In production, send error and stack to secure crash reporting (e.g., Crashlytics)
-    // FirebaseCrashlytics.instance.recordError(error, stack);
+    // TODO: In production, consider sending error and stack to secure crash reporting
+    // (e.g., Firebase Crashlytics) once the dependency is added to the project.
     return true; // handled -> prevents silent engine kill
   };
   assert(() {
