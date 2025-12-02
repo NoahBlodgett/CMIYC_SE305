@@ -16,12 +16,15 @@ class WorkoutPage extends StatefulWidget {
 class _WorkoutPageState extends State<WorkoutPage> {
   String? _currentProgramName;
   List<String> _recentPrograms = const [];
+  late Future<List<Map<String, dynamic>>> _recentSessionsFuture;
+  bool get _isSignedIn => FirebaseAuth.instance.currentUser != null;
 
   @override
   void initState() {
     super.initState();
     _loadProgramName();
     _loadRecentPrograms();
+    _recentSessionsFuture = _loadRecentSessions();
   }
 
   Future<void> _loadProgramName() async {
@@ -38,6 +41,19 @@ class _WorkoutPageState extends State<WorkoutPage> {
       if (!mounted) return;
       setState(() => _recentPrograms = list);
     } catch (_) {}
+  }
+
+  Future<List<Map<String, dynamic>>> _loadRecentSessions() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const [];
+    return workoutApiService.getUserWorkouts(uid, limit: 15);
+  }
+
+  Future<void> _refreshRecentSessions() async {
+    final next = _loadRecentSessions();
+    if (!mounted) return;
+    setState(() => _recentSessionsFuture = next);
+    await next;
   }
 
   @override
@@ -69,9 +85,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
           ),
           const SizedBox(height: 20),
           _QuickLogCard(
-            onTimed: () => Navigator.pushNamed(context, Routes.workoutLogTimed),
-            onStrength: () =>
-                Navigator.pushNamed(context, Routes.workoutLogStrength),
+            onTimed: _openTimedLog,
+            onStrength: _openStrengthLog,
           ),
           const SizedBox(height: 24),
           _SectionHeader(
@@ -129,7 +144,13 @@ class _WorkoutPageState extends State<WorkoutPage> {
             actionLabel: 'See all',
             onActionTap: _openRecentSessionsPage,
           ),
-          _RecentSessionsCard(color: color),
+          _RecentSessionsCard(
+            color: color,
+            isSignedIn: _isSignedIn,
+            workoutsFuture: _recentSessionsFuture,
+            onLogTimed: _openTimedLog,
+            onViewSessions: _openRecentSessionsPage,
+          ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
@@ -265,10 +286,21 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   Future<void> _openRecentSessionsPage() async {
     await Navigator.pushNamed(context, Routes.workoutSessions);
+    await _refreshRecentSessions();
   }
 
   Future<void> _openFeedbackInsights() async {
     await Navigator.pushNamed(context, Routes.workoutFeedback);
+  }
+
+  Future<void> _openTimedLog() async {
+    await Navigator.pushNamed(context, Routes.workoutLogTimed);
+    await _refreshRecentSessions();
+  }
+
+  Future<void> _openStrengthLog() async {
+    await Navigator.pushNamed(context, Routes.workoutLogStrength);
+    await _refreshRecentSessions();
   }
 
   Future<void> _showQuickStartSheet() async {
@@ -300,9 +332,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
     if (!mounted || selection == null) return;
     if (selection == 'timed') {
-      Navigator.pushNamed(context, Routes.workoutLogTimed);
+      await _openTimedLog();
     } else {
-      Navigator.pushNamed(context, Routes.workoutLogStrength);
+      await _openStrengthLog();
     }
   }
 }
@@ -464,8 +496,8 @@ class _ProgramHeroCard extends StatelessWidget {
 }
 
 class _QuickLogCard extends StatelessWidget {
-  final VoidCallback onTimed;
-  final VoidCallback onStrength;
+  final Future<void> Function() onTimed;
+  final Future<void> Function() onStrength;
 
   const _QuickLogCard({required this.onTimed, required this.onStrength});
 
@@ -485,7 +517,7 @@ class _QuickLogCard extends StatelessWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: onTimed,
+                  onPressed: () async => onTimed(),
                   icon: const Icon(Icons.timer_outlined),
                   label: const Text('Timed activity'),
                   style: FilledButton.styleFrom(
@@ -496,7 +528,7 @@ class _QuickLogCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: onStrength,
+                  onPressed: () async => onStrength(),
                   icon: const Icon(Icons.fitness_center),
                   label: const Text('Strength session'),
                   style: FilledButton.styleFrom(
@@ -547,7 +579,7 @@ class _QuickLogCard extends StatelessWidget {
 class _QuickShortcutChip extends StatelessWidget {
   final String label;
   final IconData icon;
-  final VoidCallback onTap;
+  final Future<void> Function() onTap;
   const _QuickShortcutChip({
     required this.label,
     required this.icon,
@@ -559,22 +591,33 @@ class _QuickShortcutChip extends StatelessWidget {
     return ActionChip(
       avatar: Icon(icon, size: 18),
       label: Text(label),
-      onPressed: onTap,
+      onPressed: () async => onTap(),
     );
   }
 }
 
 class _RecentSessionsCard extends StatelessWidget {
   final ColorScheme color;
-  const _RecentSessionsCard({required this.color});
+  final bool isSignedIn;
+  final Future<List<Map<String, dynamic>>> workoutsFuture;
+  final Future<void> Function() onLogTimed;
+  final Future<void> Function() onViewSessions;
+
+  const _RecentSessionsCard({
+    required this.color,
+    required this.isSignedIn,
+    required this.workoutsFuture,
+    required this.onLogTimed,
+    required this.onViewSessions,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
+    if (!isSignedIn) {
       return const _SectionCard(child: Text('Sign in to view sessions'));
     }
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: workoutApiService.getUserWorkouts(uid),
+      future: workoutsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _SectionCard(
@@ -592,8 +635,7 @@ class _RecentSessionsCard extends StatelessWidget {
               title: const Text('No sessions logged'),
               subtitle: const Text('Log your first workout to see it here.'),
               trailing: ElevatedButton(
-                onPressed: () =>
-                    Navigator.pushNamed(context, Routes.workoutLogTimed),
+                onPressed: () async => onLogTimed(),
                 child: const Text('Log'),
               ),
             ),
@@ -630,9 +672,10 @@ class _RecentSessionsCard extends StatelessWidget {
                 ),
                 title: Text(title),
                 subtitle: Text(meta),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () =>
-                    Navigator.pushNamed(context, Routes.workoutSessions),
+                trailing: IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () async => onViewSessions(),
+                ),
               );
             },
           ),

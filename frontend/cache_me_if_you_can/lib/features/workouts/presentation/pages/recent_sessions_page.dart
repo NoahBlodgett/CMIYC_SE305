@@ -25,7 +25,7 @@ class _RecentSessionsPageState extends State<RecentSessionsPage> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const [];
     try {
-      return await workoutApiService.getUserWorkouts(uid);
+      return await workoutApiService.getUserWorkouts(uid, limit: 100);
     } catch (_) {
       return const [];
     }

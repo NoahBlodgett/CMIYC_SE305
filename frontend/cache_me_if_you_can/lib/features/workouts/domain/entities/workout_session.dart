@@ -12,6 +12,8 @@ class WorkoutSession {
   final double? caloriesBurned; // computed
   final List<StrengthSet> sets; // for strength sessions
   final String? name; // optional display name
+  final String? notes; // optional session notes
+  final List<Map<String, dynamic>> exercises; // optional UI payload
 
   const WorkoutSession({
     required this.id,
@@ -23,6 +25,8 @@ class WorkoutSession {
     this.caloriesBurned,
     this.sets = const [],
     this.name,
+    this.notes,
+    this.exercises = const [],
   });
 
   WorkoutSession copyWith({
@@ -35,6 +39,8 @@ class WorkoutSession {
     double? caloriesBurned,
     List<StrengthSet>? sets,
     String? name,
+    String? notes,
+    List<Map<String, dynamic>>? exercises,
   }) => WorkoutSession(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -45,6 +51,8 @@ class WorkoutSession {
     caloriesBurned: caloriesBurned ?? this.caloriesBurned,
     sets: sets ?? this.sets,
     name: name ?? this.name,
+    notes: notes ?? this.notes,
+    exercises: exercises ?? this.exercises,
   );
 
   Map<String, dynamic> toMap() => {
@@ -56,6 +64,8 @@ class WorkoutSession {
     'caloriesBurned': caloriesBurned,
     'sets': sets.map((s) => s.toMap()).toList(),
     'name': name,
+    'notes': notes,
+    'exercises': exercises,
   };
 
   static WorkoutSession fromMap(String id, Map<String, dynamic> map) {
@@ -79,6 +89,10 @@ class WorkoutSession {
           .map((e) => StrengthSet.fromMap(e as Map<String, dynamic>))
           .toList(),
       name: map['name'] as String?,
+      notes: map['notes'] as String?,
+      exercises: ((map['exercises'] as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
     );
   }
 }
